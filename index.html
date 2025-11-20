@@ -380,7 +380,7 @@
       ? totalHours / baseHours * 8 * legalDays
       : 0;
 
-    output += `\n到職日（系統假設為每月 1 日）：${fmtDate(hireDate)}\n`;
+    output += `\n到職日（系統預設為當月1日算起）：${fmtDate(hireDate)}\n`;
     output += `累計年資：${years} 年 ${monthsRemainder} 個月（共 ${totalMonths} 月）\n`;
     output += `法定特休日數：${legalDays} 日\n`;
     output += `基準總工時：${baseHours} 小時\n\n`;
