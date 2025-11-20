@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <title>部分工時特休計算（純前端版）</title>
+  <title>時薪人員特休時數計算</title>
   <style>
     body {
       font-family: "Microsoft JhengHei", Arial, sans-serif;
@@ -93,10 +93,15 @@
     label {
       font-size: 18px;
     }
-    #hireDate {
-      font-size: 18px;
-      padding: 6px;
-      margin-left: 10px;
+
+    .hire-row {
+      margin-bottom: 10px;
+    }
+    .hire-select {
+      width: auto;
+      min-width: 80px;
+      margin-left: 6px;
+      margin-right: 6px;
     }
   </style>
 </head>
@@ -104,12 +109,33 @@
 
 <div class="container">
 
-  <h1>部分工時特休計算（純前端版）</h1>
+  <h1>時薪人員特休時數計算</h1>
 
-  <div>
+  <div class="hire-row">
     <label>
-      到職日（可留白）：
-      <input type="date" id="hireDate">
+      到職日（第一次聘用的時間）：
+      <select id="hireYear" class="hire-select">
+        <option value="">年份</option>
+      </select>
+      年
+      <select id="hireMonth" class="hire-select">
+        <option value="">月份</option>
+        <option value="01">1</option>
+        <option value="02">2</option>
+        <option value="03">3</option>
+        <option value="04">4</option>
+        <option value="05">5</option>
+        <option value="06">6</option>
+        <option value="07">7</option>
+        <option value="08">8</option>
+        <option value="09">9</option>
+        <option value="10">10</option>
+        <option value="11">11</option>
+        <option value="12">12</option>
+      </select>
+      月
+      <!-- 日固定為 1 號，不顯示在畫面上 -->
+      <input type="hidden" id="hireDay" value="01">
     </label>
   </div>
 
@@ -138,8 +164,26 @@
   const btnAddRow = document.getElementById('btnAddRow');
   const btnCalc = document.getElementById('btnCalc');
   const resultArea = document.getElementById('resultArea');
-  const hireDateInput = document.getElementById('hireDate');
+  const hireYearSelect = document.getElementById('hireYear');
+  const hireMonthSelect = document.getElementById('hireMonth');
+  const hireDayHidden = document.getElementById('hireDay');
 
+  // ===== 初始化「到職年份」下拉選單 =====
+  (function initHireYearOptions() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const startYear = currentYear - 20; // 往前 20 年
+    const endYear = currentYear + 5;    // 往後 5 年
+
+    for (let y = startYear; y <= endYear; y++) {
+      const opt = document.createElement('option');
+      opt.value = String(y);
+      opt.textContent = y;
+      hireYearSelect.appendChild(opt);
+    }
+  })();
+
+  // ===== 共用工具 =====
   function fmtDate(d) {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -168,6 +212,7 @@
     return 0;
   }
 
+  // ===== 生成一列輸入列 =====
   function addRow(defaultYear, defaultMonth) {
     const tr = document.createElement('tr');
 
@@ -209,11 +254,13 @@
     rowsBody.appendChild(tr);
   }
 
-  (function init() {
+  // 初始：先加一列，年/月抓今天
+  (function initFirstRow() {
     const today = new Date();
     addRow(today.getFullYear(), today.getMonth() + 1);
   })();
 
+  // 新增一列：自動上一列 +1 個月
   btnAddRow.addEventListener('click', function () {
     const trs = rowsBody.querySelectorAll('tr');
     let nextYear, nextMonth;
@@ -236,15 +283,22 @@
         nextYear = y;
         nextMonth = m;
       }
+    } else {
+      const today = new Date();
+      nextYear = today.getFullYear();
+      nextMonth = today.getMonth() + 1;
     }
 
     addRow(nextYear, nextMonth);
   });
 
+  // 計算按鈕
   btnCalc.addEventListener('click', function () {
-    const hireDateStr = hireDateInput.value;
-    const trs = rowsBody.querySelectorAll('tr');
+    const hireYear = hireYearSelect.value;
+    const hireMonth = hireMonthSelect.value;
+    const hireDay = hireDayHidden.value || "01"; // 固定 1 號
 
+    const trs = rowsBody.querySelectorAll('tr');
     const rows = [];
     trs.forEach(tr => {
       const year = tr.querySelector('input[name="year"]').value;
@@ -277,6 +331,11 @@
       if (!maxDate || d > maxDate) maxDate = d;
     });
 
+    if (!minDate || !maxDate) {
+      resultArea.textContent = '年月資料有誤，請確認年/月欄位';
+      return;
+    }
+
     const periodEnd = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0);
 
     let output = "";
@@ -284,14 +343,29 @@
     output += `共有月份筆數：${rows.length}\n\n`;
     output += `全部登記工時總和：${totalHours} 小時\n`;
 
-    if (!hireDateStr) {
-      output += `\n（未輸入到職日 → 僅顯示工時統計）`;
+    // 若未填到職年／月 → 僅顯示工時統計
+    if (!hireYear || !hireMonth) {
+      output += `\n（尚未輸入到職「年 / 月」→ 僅顯示工時統計）`;
       resultArea.textContent = output;
       return;
     }
 
+    // 組成到職日（yyyy-mm-01）
+    const hireDateStr = `${hireYear}-${hireMonth}-${hireDay}`;
     const hireDate = new Date(hireDateStr);
+    if (isNaN(hireDate.getTime())) {
+      output += `\n到職年月格式錯誤，無法計算特休。`;
+      resultArea.textContent = output;
+      return;
+    }
+
     const totalMonths = diffInMonths(hireDate, periodEnd);
+    if (totalMonths < 0) {
+      output += `\n到職日晚於資料期間，請確認。`;
+      resultArea.textContent = output;
+      return;
+    }
+
     const years = Math.floor(totalMonths / 12);
     const monthsRemainder = totalMonths % 12;
     const legalDays = getLegalDaysByMonths(totalMonths);
@@ -306,7 +380,7 @@
       ? totalHours / baseHours * 8 * legalDays
       : 0;
 
-    output += `\n到職日：${fmtDate(hireDate)}\n`;
+    output += `\n到職日（系統假設為每月 1 日）：${fmtDate(hireDate)}\n`;
     output += `累計年資：${years} 年 ${monthsRemainder} 個月（共 ${totalMonths} 月）\n`;
     output += `法定特休日數：${legalDays} 日\n`;
     output += `基準總工時：${baseHours} 小時\n\n`;
