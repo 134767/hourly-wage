@@ -279,7 +279,6 @@
     return `${y}-${m}-${day}`;
   }
 
-  // fromDate → toDate 的「實際經過月數」（不足一個月不算）
   function diffInMonths(fromDate, toDate) {
     let months = (toDate.getFullYear() - fromDate.getFullYear()) * 12 +
                  (toDate.getMonth() - fromDate.getMonth());
@@ -289,12 +288,16 @@
     return months;
   }
 
-  // 將起始日往後推 offset 個月，回傳 new Date（該月 1 號）
-  function addMonths(date, offset) {
-    const d = new Date(date);
-    d.setMonth(d.getMonth() + offset);
-    d.setDate(1);
-    return d;
+  function getLegalDaysByMonths(totalMonths) {
+    const years = Math.floor(totalMonths / 12);
+    if (years === 0 && totalMonths < 6) return 0;
+    if (years === 0 && totalMonths >= 6) return 3;
+    if (years >= 1 && years < 2) return 7;
+    if (years >= 2 && years < 3) return 10;
+    if (years >= 3 && years < 5) return 14;
+    if (years >= 5 && years < 10) return 15;
+    if (years >= 10) return Math.min(15 + (years - 10), 30);
+    return 0;
   }
 
   // ===== 生成一列輸入列 =====
@@ -407,17 +410,7 @@
     }
   });
 
-  // ===== 勞基法級距（用到職日 → 今天算年資） =====
-  const LAW_LEVELS = [
-    { min:  6, max: 11, days:  3, label: "6個月以上1年未滿" },
-    { min: 12, max: 23, days:  7, label: "1年以上2年未滿" },
-    { min: 24, max: 35, days: 10, label: "2年以上3年未滿" },
-    { min: 36, max: 59, days: 14, label: "3年以上5年未滿" },
-    { min: 60, max:119, days: 15, label: "5年以上10年未滿" }
-    // 10 年以上：下面額外處理
-  ];
-
-  // ===== 計算按鈕 =====
+  // ===== 計算按鈕（年資用「有紀錄之月份數」） =====
   btnCalc.addEventListener('click', function () {
     const hireYear = hireYearSelect.value;
     const hireMonth = hireMonthSelect.value;
@@ -439,8 +432,8 @@
       return;
     }
 
-    // ===== 工時統計：全部登記期間 & 全部工時 =====
-    let totalHoursAll = 0;
+    // ===== 工時統計（有登記的工時區間） =====
+    let totalHours = 0;
     let minDate = null;
     let maxDate = null;
 
@@ -451,7 +444,7 @@
       if (!y || isNaN(y) || m < 0 || m > 11) return;
 
       const d = new Date(y, m, 1);
-      totalHoursAll += h;
+      totalHours += h;
 
       if (!minDate || d < minDate) minDate = d;
       if (!maxDate || d > maxDate) maxDate = d;
@@ -464,129 +457,117 @@
 
     const periodEnd = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0);
 
-    // ===== 若未填到職日 → 只顯示工時統計 =====
     let output = "";
+    output += `資料期間（有登記工時）：${fmtDate(minDate)} ~ ${fmtDate(periodEnd)}\n`;
+    output += `共有月份筆數：${rows.length}\n\n`;
+
+    // 若未填到職日 → 只顯示工時統計
     if (!hireYear || !hireMonth) {
-      output += `一、工時資料統計\n`;
-      output += `工時資料期間（有登記工時）：${fmtDate(minDate)} ~ ${fmtDate(periodEnd)}\n`;
-      output += `共有月份筆數：${rows.length}\n`;
-      output += `全部登記工時總和：約 ${totalHoursAll} 小時\n`;
+      output += `全部登記工時總和：${totalHours} 小時\n`;
       output += `\n（尚未輸入到職日 → 僅顯示工時統計）`;
       resultArea.textContent = output;
       return;
     }
 
-    // ===== 到職日與今天 =====
+    // ===== 到職日 & 年資月份（以「有紀錄之年月」為準） =====
     const hireDate = new Date(`${hireYear}-${hireMonth}-${hireDay}`);
     if (isNaN(hireDate.getTime())) {
-      resultArea.textContent = '到職年月格式錯誤，無法計算特休。';
+      output += '到職年月格式錯誤，無法計算特休。';
+      resultArea.textContent = output;
       return;
     }
+
     const today = new Date();
 
-    // ===== 一、年資與法定特休（純依到職日→今天算） =====
-    const totalLawMonths = diffInMonths(hireDate, today);
-    const lawYears = Math.floor(totalLawMonths / 12);
-    const lawMonthsRemainder = totalLawMonths % 12;
-
-    let lawDetailLines = [];
-    let totalLawDays = 0;
-    const HOURS_PER_DAY = 8;
-
-    if (totalLawMonths < 6) {
-      lawDetailLines.push("目前未滿 6 個月，尚無法定特別休假日數。");
-    } else {
-      // 既有級距
-      LAW_LEVELS.forEach(stage => {
-        if (totalLawMonths >= stage.min) {
-          const startDate = addMonths(hireDate, stage.min);
-          const endDate   = addMonths(hireDate, stage.max);
-          const sY = startDate.getFullYear();
-          const sM = String(startDate.getMonth() + 1).padStart(2, '0');
-          const eY = endDate.getFullYear();
-          const eM = String(endDate.getMonth() + 1).padStart(2, '0');
-
-          totalLawDays += stage.days;
-          lawDetailLines.push(
-            `${stage.label}\t${sY}/${sM} ~ ${eY}/${eM}\t${stage.days} 日`
-          );
-        }
-      });
-
-      // 10 年以上：每年 +1 日，加至 30 日
-      if (lawYears >= 10) {
-        const extraYears = lawYears - 10;
-        const baseDays = 15;
-        const days = Math.min(baseDays + extraYears, 30);
-        const startDate = addMonths(hireDate, 120);
-        const endDate   = addMonths(hireDate, (10 + extraYears + 1) * 12 - 1);
-        const sY = startDate.getFullYear();
-        const sM = String(startDate.getMonth() + 1).padStart(2, '0');
-        const eY = endDate.getFullYear();
-        const eM = String(endDate.getMonth() + 1).padStart(2, '0');
-
-        totalLawDays += days;
-        lawDetailLines.push(
-          `10年以上（每年加給1日，加至30日）\t${sY}/${sM} ~ ${eY}/${eM}\t${days} 日`
-        );
-      }
-    }
-
-    const totalLawHours = totalLawDays * HOURS_PER_DAY;
-
-    output += `一、年資與法定特休\n`;
-    output += `到職日：${fmtDate(hireDate)}\n`;
-    output += `試算日：${fmtDate(today)}\n`;
-    output += `累計年資：約 ${lawYears} 年 ${lawMonthsRemainder} 個月（共 ${totalLawMonths} 個月）\n`;
-    output += `依勞基法第 38 條，目前已涵蓋特休級距如下：\n\n`;
-
-    if (lawDetailLines.length === 1 && totalLawMonths < 6) {
-      output += lawDetailLines[0] + "\n";
-    } else {
-      output += `級距\t對應期間（示意）\t每年特休日數\n`;
-      lawDetailLines.forEach(line => {
-        output += line + "\n";
-      });
-      output += `\n依上表合計特休日數（單純加總）：${totalLawDays} 日（示意）\n`;
-      output += `若以每天 ${HOURS_PER_DAY} 小時計算，約為 ${totalLawHours.toFixed(2)} 小時。\n`;
-    }
-
-    // ===== 二、工時資料與有效月份（以有登記年月為準，含 0 小時） =====
+    // 建立「實際計入年資」的月份（有登記 yyyy/mm 即算，工時可為 0）
     const serviceDatesMap = new Map();
-    let totalHoursEffective = 0;
-
     rows.forEach(r => {
       const y = Number(r.year);
       const m = Number(r.month) - 1;
-      const h = Number(r.hours) || 0;
       if (!y || isNaN(y) || m < 0 || m > 11) return;
-
       const d = new Date(y, m, 1);
 
-      // 僅計算到職日至今之間的記錄 → 有效月份
+      // 只計算在到職日 ~ 今天之間的記錄
       if (d < hireDate || d > today) return;
 
-      const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+      const key = `${y}-${String(m+1).padStart(2, '0')}`;
       if (!serviceDatesMap.has(key)) {
         serviceDatesMap.set(key, d);
       }
-      totalHoursEffective += h;
     });
 
-    const serviceMonths = serviceDatesMap.size;
+    const serviceDates = Array.from(serviceDatesMap.values()).sort((a,b) => a - b);
+    const serviceMonths = serviceDates.length;
 
-    output += `\n二、工時資料與有效月份（兼任／時薪內部使用）\n`;
-    output += `工時資料期間（有登記工時）：${fmtDate(minDate)} ~ ${fmtDate(periodEnd)}\n`;
+    const years = Math.floor(serviceMonths / 12);
+    const monthsRemainder = serviceMonths % 12;
+
+    output += `到職日（系統預設為當月1日算起）：${fmtDate(hireDate)}\n`;
     output += `年資計算區間：${fmtDate(hireDate)} ~ ${fmtDate(today)}\n`;
-    output += `貴職計入年資的有效月份：${serviceMonths} 個月（以有登記之年月為準，含 0 小時）\n`;
-    output += `有效月份內工時總和：約 ${totalHoursEffective} 小時\n`;
-    output += `全部登記工時總和（含未計入年資期間）：約 ${totalHoursAll} 小時\n`;
-    output += `\n※ 上述第二部分為兼任／時薪人員內部試算用，實際給假標準仍請依單位規定辦理。\n`;
+    output += `實際計入年資月份數：${serviceMonths} 月（以有登記之年月為準，含 0 小時）\n`;
+    output += `累計年資：${years} 年 ${monthsRemainder} 個月\n\n`;
+    output += `全部登記工時總和：${totalHours} 小時\n`;
+
+    // 若完全沒有可計入年資的月份 → 不再往下算特休
+    if (serviceMonths === 0) {
+      output += `\n（到職日之後尚無任何年月記錄，故無可計入年資之月份）`;
+      resultArea.textContent = output;
+      return;
+    }
+
+    // ===== 特休細項（只顯示已達級距的） =====
+    const FULL_YEAR = 2088;
+    const HALF_YEAR = 1044;
+
+    const stages = [
+      { min: 6,  max: 11,  days: 3,  hoursBase: HALF_YEAR, label: "6個月以上1年未滿（3日）" },
+      { min: 12, max: 23,  days: 7,  hoursBase: FULL_YEAR, label: "1年以上2年未滿（7日）" },
+      { min: 24, max: 35,  days: 10, hoursBase: FULL_YEAR, label: "2年以上3年未滿（10日）" },
+      { min: 36, max: 59,  days: 14, hoursBase: FULL_YEAR, label: "3年以上5年未滿（14日）" },
+      { min: 60, max: 119, days: 15, hoursBase: FULL_YEAR, label: "5年以上10年未滿（15日）" }
+      // 10年以上加給部分，如未來需要可再額外展開
+    ];
+
+    let totalLeaveHours = 0;
+    let detailText = "\n\n特休細項：\n";
+
+    const totalMonthsChrono = diffInMonths(hireDate, today);
+
+    stages.forEach(stage => {
+      if (serviceMonths >= stage.min) {
+        // 該級距有達門檻才顯示
+
+        // 級距起訖：用「到職日 + offset 月」為說明區間（法律上的年資區間）
+        const startOffset = stage.min;
+        const endOffset = Math.min(totalMonthsChrono, stage.max);
+
+        const periodStart = new Date(hireDate);
+        periodStart.setMonth(periodStart.getMonth() + startOffset);
+
+        const periodEndStage = new Date(hireDate);
+        periodEndStage.setMonth(periodEndStage.getMonth() + endOffset);
+
+        const leaveHours = totalHours / stage.hoursBase * 8 * stage.days;
+        totalLeaveHours += leaveHours;
+
+        const psY = periodStart.getFullYear();
+        const psM = String(periodStart.getMonth() + 1).padStart(2, '0');
+        const peY = periodEndStage.getFullYear();
+        const peM = String(periodEndStage.getMonth() + 1).padStart(2, '0');
+
+        detailText += `${stage.label}：\n`;
+        detailText += `(${psY}/${psM} - ${peY}/${peM})\n`;
+        detailText += `${leaveHours.toFixed(2)} 小時\n\n`;
+      }
+    });
+
+    output += `全部總和特休時數：約 ${totalLeaveHours.toFixed(2)} 小時`;
+    output += detailText;
 
     resultArea.textContent = output;
   });
 
-  // ===== 匯出 Excel（沿用你原本的邏輯） =====
+  // ===== 匯出 Excel =====
   btnExport.addEventListener('click', function () {
     const hireYear = hireYearSelect.value;
     const hireMonth = hireMonthSelect.value;
