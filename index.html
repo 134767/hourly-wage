@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
-  <title>時薪人員特休試算（GitHub 版本）</title>
+  <title>時薪人員特休試算（可輸入版）</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body{
@@ -26,47 +26,76 @@
     th,td{border:1px solid #e2e8f0;padding:4px 6px;text-align:left;}
     th{background:#f1f5f9;}
     .tag{display:inline-block;padding:2px 6px;border-radius:999px;font-size:12px;background:#e0f2fe;color:#0369a1;margin-left:4px;}
+    label{font-size:14px;display:block;margin-top:8px;margin-bottom:4px;}
+    input, textarea, button{
+      font-family: inherit;
+      font-size:14px;
+    }
+    input[type="date"], textarea{
+      width:100%;
+      box-sizing:border-box;
+      padding:6px 8px;
+      border-radius:6px;
+      border:1px solid #cbd5e1;
+      background:#ffffff;
+    }
+    textarea{min-height:120px;resize:vertical;white-space:pre;}
+    button{
+      margin-top:8px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:none;
+      cursor:pointer;
+      background:#0f172a;
+      color:#e5e7eb;
+    }
+    button:hover{background:#1e293b;}
+    .hint{font-size:12px;color:#64748b;}
   </style>
 </head>
 <body>
-  <h1>時薪人員特休試算（示範）</h1>
+  <h1>時薪人員特休試算</h1>
 
+  <!-- 輸入區 -->
+  <div class="card">
+    <h2>輸入資料</h2>
+
+    <label for="employDate">到職日：</label>
+    <input type="date" id="employDate" />
+
+    <label for="refDate">試算日：</label>
+    <input type="date" id="refDate" />
+
+    <label for="hoursPerDay">每日工時（小時）：</label>
+    <input type="number" id="hoursPerDay" value="8" min="1" step="0.5" />
+
+    <label for="workData">
+      每月工時（年,月,工時）<br/>
+      <span class="hint">
+        一行一筆，例如：<br/>
+        2025,1,44<br/>
+        2025,2,55<br/>
+        2025,3,78
+      </span>
+    </label>
+    <textarea id="workData"></textarea>
+
+    <button id="btnCalc">重新計算</button>
+    <div class="hint" style="margin-top:4px;">
+      提示：未輸入資料時，會先使用內建示範數據。
+    </div>
+  </div>
+
+  <!-- 計算結果 -->
   <div id="result"></div>
 
   <script>
-    // ===== 基本設定 =====
-    const EMPLOY_DATE = "2023-03-01"; // 到職日
-    const REF_DATE = "2025-11-20";    // 試算日（你可以改成 new Date().toISOString().slice(0,10)）
-    const HOURS_PER_DAY = 8;          // 一日幾小時：若你單位不同，可以自行修改
-
-    // 每月工時資料（你現在這組）
-    const workRecords = [
-      { year: 2025, month:  1, hours: 44 },
-      { year: 2025, month:  2, hours: 55 },
-      { year: 2025, month:  3, hours: 78 },
-      { year: 2025, month:  4, hours:120 },
-      { year: 2025, month:  5, hours:  0 },
-      { year: 2025, month:  6, hours:  0 },
-      { year: 2025, month:  7, hours:  9 },
-      { year: 2025, month:  8, hours: 41 },
-      { year: 2025, month:  9, hours: 74 },
-      { year: 2025, month: 10, hours: 85 },
-      { year: 2025, month: 11, hours: 96 },
-      { year: 2025, month: 12, hours: 44 },
-      { year: 2026, month:  1, hours: 78 },
-      { year: 2026, month:  2, hours: 99 },
-      { year: 2026, month:  3, hours:  0 },
-      { year: 2026, month:  4, hours:  4 },
-      { year: 2026, month:  5, hours: 99 },
-      { year: 2026, month:  6, hours:  0 }
-    ];
-
-    // ===== 小工具：年月計算 =====
+    // ===== 工具：年月差 =====
     function diffYearMonth(startStr, endStr){
       const [sy, sm, sd] = startStr.split("-").map(Number);
       const [ey, em, ed] = endStr.split("-").map(Number);
       let totalMonths = (ey - sy) * 12 + (em - sm);
-      if (ed < sd) totalMonths -= 1;    // 不足一個月不算
+      if (ed < sd) totalMonths -= 1; // 不足一個月不算
       const years = Math.floor(totalMonths / 12);
       const months = totalMonths % 12;
       return { totalMonths, years, months };
@@ -86,24 +115,25 @@
       return `${startYM.replace("-", "/")} ~ ${endYM.replace("-", "/")}`;
     }
 
-    // ===== 勞基法特休級距表（第 38 條） =====
+    // ===== 勞基法級距 =====
     const LAW_LEVELS = [
       { minMonths:  6, maxMonths: 12, days:  3, label: "6個月以上1年未滿" },
       { minMonths: 12, maxMonths: 24, days:  7, label: "1年以上2年未滿" },
       { minMonths: 24, maxMonths: 36, days: 10, label: "2年以上3年未滿" },
       { minMonths: 36, maxMonths: 60, days: 14, label: "3年以上5年未滿" },
-      { minMonths: 60, maxMonths:120, days: 15, label: "5年以上10年未滿" },
-      // 10 年以上：下面用程式動態處理
+      { minMonths: 60, maxMonths:120, days: 15, label: "5年以上10年未滿" }
+      // 10 年以上另外算
     ];
 
     function calcLawSeniorityAndLeaves(employDateStr, refDateStr){
       const diff = diffYearMonth(employDateStr, refDateStr);
-      const { totalMonths, years, months } = diff;
+      const totalMonths = diff.totalMonths;
+      const years = diff.years;
+      const months = diff.months;
 
       const details = [];
 
-      // 固定前 5 級
-      LAW_LEVELS.forEach(level => {
+      LAW_LEVELS.forEach(function(level){
         if (totalMonths >= level.minMonths) {
           const periodText = formatYMRange(employDateStr, level.minMonths, level.maxMonths);
           details.push({
@@ -114,28 +144,29 @@
         }
       });
 
-      // 10 年以上：每年 +1 日，加至 30 日
       if (years >= 10) {
         const extraYears = years - 10;
         const baseDays = 15;
         const days = Math.min(baseDays + extraYears, 30);
-        const minMonths = 120;                // 第 10 年起算
-        const maxMonths = (10 + extraYears + 1) * 12; // 粗略示意
+        const minMonths = 120;
+        const maxMonths = (10 + extraYears + 1) * 12;
         const periodText = formatYMRange(employDateStr, minMonths, maxMonths);
         details.push({
           label: "10年以上（每年加給1日，加至30日）",
-          days,
+          days: days,
           period: periodText
         });
       }
 
-      return { totalMonths, years, months, details };
+      return { totalMonths: totalMonths, years: years, months: months, details: details };
     }
 
-    // ===== 工時資料分析：資料期間、有效月份、工時總和 =====
+    // ===== 工時資料分析 =====
     function analyzeWorkRecords(employDateStr, refDateStr, records){
       const refDate = new Date(refDateStr);
-      const [sy, sm] = employDateStr.split("-").map(Number);
+      const parts = employDateStr.split("-");
+      const sy = Number(parts[0]);
+      const sm = Number(parts[1]);
       const startDate = new Date(sy, sm - 1, 1);
 
       let minRecordDate = null;
@@ -143,14 +174,12 @@
       let effectiveMonths = 0;
       let totalHours = 0;
 
-      records.forEach(r => {
+      records.forEach(function(r){
         const d = new Date(r.year, r.month - 1, 1);
 
-        // 資料期間（不管有沒有超出年資計算區間）
         if (!minRecordDate || d < minRecordDate) minRecordDate = d;
         if (!maxRecordDate || d > maxRecordDate) maxRecordDate = d;
 
-        // 有登記工時（含 0 小時）且在到職日與試算日期之間 → 計入「有效月份」
         if (d >= startDate && d <= refDate) {
           effectiveMonths += 1;
           totalHours += Number(r.hours) || 0;
@@ -160,90 +189,157 @@
       function fmt(d){
         const y = d.getFullYear();
         const m = String(d.getMonth() + 1).padStart(2,"0");
-        return `${y}-${m}-01`;
+        return y + "-" + m + "-01";
       }
 
       return {
         dataStart: minRecordDate ? fmt(minRecordDate) : null,
         dataEnd  : maxRecordDate ? fmt(maxRecordDate) : null,
-        effectiveMonths,
-        totalHours
+        effectiveMonths: effectiveMonths,
+        totalHours: totalHours
       };
     }
 
-    // ===== 把結果渲染到畫面 =====
-    function render(){
-      const law = calcLawSeniorityAndLeaves(EMPLOY_DATE, REF_DATE);
-      const work = analyzeWorkRecords(EMPLOY_DATE, REF_DATE, workRecords);
+    // ===== 解析 textarea 文字 → workRecords =====
+    function parseWorkData(text){
+      const lines = text.split(/\r?\n/);
+      const records = [];
+      lines.forEach(function(line){
+        const t = line.trim();
+        if (!t) return;
+        // 用逗號或空白分隔
+        const parts = t.split(/[\s,]+/);
+        if (parts.length < 3) return;
+        const y = Number(parts[0]);
+        const m = Number(parts[1]);
+        const h = Number(parts[2]);
+        if (!y || !m) return;
+        records.push({ year: y, month: m, hours: h || 0 });
+      });
+      return records;
+    }
 
-      const totalLawDays = law.details.reduce((sum, d) => sum + d.days, 0);
-      const totalLawHours = totalLawDays * HOURS_PER_DAY;
+    // ===== 渲染結果 =====
+    function render(employDate, refDate, hoursPerDay, workRecords){
+      const law = calcLawSeniorityAndLeaves(employDate, refDate);
+      const work = analyzeWorkRecords(employDate, refDate, workRecords);
+
+      const totalLawDays = law.details.reduce(function(sum, d){ return sum + d.days; }, 0);
+      const totalLawHours = totalLawDays * hoursPerDay;
 
       const container = document.getElementById("result");
-      let html = "";
+      var html = "";
 
-      // 年資總覽
-      html += `
-        <div class="card">
-          <h2>一、年資與法定特休</h2>
-          <div>到職日：<span class="mono">${EMPLOY_DATE}</span></div>
-          <div>試算日：<span class="mono">${REF_DATE}</span></div>
-          <div>累計年資：約 <strong>${law.years} 年 ${law.months} 個月</strong>（共 ${law.totalMonths} 個月）</div>
-          <div>依勞基法第 38 條，目前已涵蓋特休級距如下：</div>
-          <table>
-            <thead>
-              <tr>
-                <th>級距</th>
-                <th>對應期間（示意）</th>
-                <th>每年特休日數</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${law.details.map(d => `
-                <tr>
-                  <td>${d.label}</td>
-                  <td class="mono">${d.period}</td>
-                  <td>${d.days} 日</td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
-          <div style="margin-top:4px;">
-            依上表合計特休日數（單純加總）：<strong>${totalLawDays} 日</strong>
-            <span class="tag">示意</span><br/>
-            若以每天 ${HOURS_PER_DAY} 小時計算，約為 <strong>${totalLawHours.toFixed(2)} 小時</strong>。
-          </div>
-        </div>
-      `;
+      html +=
+        '<div class="card">' +
+        '<h2>一、年資與法定特休</h2>' +
+        '<div>到職日：<span class="mono">' + employDate + '</span></div>' +
+        '<div>試算日：<span class="mono">' + refDate + '</span></div>' +
+        '<div>累計年資：約 <strong>' + law.years + ' 年 ' + law.months + ' 個月</strong>（共 ' + law.totalMonths + ' 個月）</div>' +
+        '<div>依勞基法第 38 條，目前已涵蓋特休級距如下：</div>' +
+        '<table><thead><tr>' +
+        '<th>級距</th><th>對應期間（示意）</th><th>每年特休日數</th>' +
+        '</tr></thead><tbody>';
 
-      // 工時資料與「有效月份」
-      html += `
-        <div class="card">
-          <h2>二、工時資料與有效月份（兼任／時薪內部使用）</h2>
-          <div>工時資料期間（有登記工時）：<br/>
-            ${work.dataStart ? `<span class="mono">${work.dataStart}</span> ~ <span class="mono">${work.dataEnd}</span>` : "（尚無資料）"}
-          </div>
-          <div style="margin-top:4px;">
-            年資計算區間：<span class="mono">${EMPLOY_DATE}</span> ~ <span class="mono">${REF_DATE}</span>
-          </div>
-          <div style="margin-top:4px;">
-            實際計入年資的「有效月份」：<strong>${work.effectiveMonths} 個月</strong>
-            <span class="tag">以有登記之年月為準，含 0 小時</span>
-          </div>
-          <div style="margin-top:4px;">
-            有效月份內工時總和：約 <strong>${work.totalHours} 小時</strong>
-          </div>
-          <div style="margin-top:4px;font-size:13px;color:#64748b;">
-            註：本區為你自訂「以實際登記時數換算特休」的內部試算用，<br/>
-            法定特休仍以上方「年資與法定特休」為準，實際給假方式請依單位規定。
-          </div>
-        </div>
-      `;
+      law.details.forEach(function(d){
+        html +=
+          '<tr>' +
+          '<td>' + d.label + '</td>' +
+          '<td class="mono">' + d.period + '</td>' +
+          '<td>' + d.days + ' 日</td>' +
+          '</tr>';
+      });
+
+      html +=
+        '</tbody></table>' +
+        '<div style="margin-top:4px;">依上表合計特休日數（單純加總）：<strong>' + totalLawDays + ' 日</strong>' +
+        '<span class="tag">示意</span><br/>若以每天 ' + hoursPerDay +
+        ' 小時計算，約為 <strong>' + totalLawHours.toFixed(2) + ' 小時</strong>。</div>' +
+        '</div>';
+
+      html +=
+        '<div class="card">' +
+        '<h2>二、工時資料與有效月份（兼任／時薪內部使用）</h2>' +
+        '<div>工時資料期間（有登記工時）：<br/>' +
+        (work.dataStart ?
+          '<span class="mono">' + work.dataStart + '</span> ~ <span class="mono">' + work.dataEnd + '</span>' :
+          '（尚無資料）') +
+        '</div>' +
+        '<div style="margin-top:4px;">年資計算區間：<span class="mono">' + employDate +
+        '</span> ~ <span class="mono">' + refDate + '</span></div>' +
+        '<div style="margin-top:4px;">實際計入年資的「有效月份」：<strong>' +
+        work.effectiveMonths + ' 個月</strong>' +
+        '<span class="tag">以有登記之年月為準，含 0 小時</span></div>' +
+        '<div style="margin-top:4px;">有效月份內工時總和：約 <strong>' +
+        work.totalHours + ' 小時</strong></div>' +
+        '<div style="margin-top:4px;font-size:13px;color:#64748b;">註：本區為你自訂「以實際登記時數換算特休」的內部試算用，<br/>法定特休仍以上方「年資與法定特休」為準，實際給假方式請依單位規定。</div>' +
+        '</div>';
 
       container.innerHTML = html;
     }
 
-    render();
+    // ===== 初始化：帶入預設值（你剛剛那組資料） =====
+    function fillDefaults(){
+      var employInput = document.getElementById("employDate");
+      var refInput = document.getElementById("refDate");
+      var workArea = document.getElementById("workData");
+
+      // 到職日
+      employInput.value = "2023-03-01";
+
+      // 試算日：預設用今天
+      var today = new Date();
+      var y = today.getFullYear();
+      var m = String(today.getMonth() + 1).padStart(2,"0");
+      var d = String(today.getDate()).padStart(2,"0");
+      refInput.value = y + "-" + m + "-" + d;
+
+      // 預設示範工時資料（你可以改掉）
+      var demoLines = [
+        "2025,1,44",
+        "2025,2,55",
+        "2025,3,78",
+        "2025,4,120",
+        "2025,5,0",
+        "2025,6,0",
+        "2025,7,9",
+        "2025,8,41",
+        "2025,9,74",
+        "2025,10,85",
+        "2025,11,96",
+        "2025,12,44",
+        "2026,1,78",
+        "2026,2,99",
+        "2026,3,0",
+        "2026,4,4",
+        "2026,5,99",
+        "2026,6,0"
+      ];
+      workArea.value = demoLines.join("\n");
+
+      // 一開始就計算一次
+      doCalc();
+    }
+
+    function doCalc(){
+      var employDate = document.getElementById("employDate").value;
+      var refDate = document.getElementById("refDate").value;
+      var hoursPerDay = Number(document.getElementById("hoursPerDay").value) || 8;
+      var text = document.getElementById("workData").value;
+
+      if (!employDate || !refDate) {
+        alert("請先輸入到職日與試算日");
+        return;
+      }
+      var records = parseWorkData(text);
+      render(employDate, refDate, hoursPerDay, records);
+    }
+
+    document.getElementById("btnCalc").addEventListener("click", function(){
+      doCalc();
+    });
+
+    fillDefaults();
   </script>
 </body>
 </html>
