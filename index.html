@@ -127,14 +127,10 @@
       background: #eff6ff;
       margin-top: 12px;
     }
-    .section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
-    }
-    .section-header h2 {
+    .section-header-title {
       font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
       color: #0f172a;
     }
 
@@ -275,25 +271,29 @@
       border-radius: 999px;
     }
 
-    /* Result */
-    .result-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      gap: 8px;
-      margin-top: 8px;
-    }
-    .pill {
-      padding: 6px 8px;
+    /* Summary box (右側) */
+    .summary-box {
       border-radius: 10px;
-      border: 1px solid #bfdbfe;
       background: #ffffff;
-      font-size: 13px;
+      border: 1px solid #bfdbfe;
+      padding: 10px 12px;
+      font-size: 12px;
       color: #111827;
     }
-    .pill-label {
-      color: #4b5563;
+    .summary-box-title {
+      font-weight: 600;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .summary-row {
       margin-bottom: 2px;
-      font-size: 11px;
+      line-height: 1.6;
+    }
+    .summary-row strong {
+      font-weight: 600;
+    }
+    .summary-legal {
+      margin-top: 6px;
     }
   </style>
 </head>
@@ -377,65 +377,90 @@
 
     <!-- ========== Main App View ========== -->
     <div id="app-view">
-      <!-- 基本資訊：學號 & 到職日 & 按鈕列 -->
+      <!-- 上方：左側基本資料 / 右側計算結果 -->
       <div class="section mt-16">
-        <div class="section-header">
-          <h2>時薪人員時數計算</h2>
-          <span class="tag" id="logged-user-label">已登入使用者：—</span>
-        </div>
-
-        <!-- 學號查詢 -->
-        <div class="row mb-12">
-          <div class="col" style="max-width:260px;">
-            <label for="student-id">學號</label>
-            <input type="text" id="student-id" placeholder="請輸入學號，例如：412345678" />
-          </div>
-          <div class="col" style="flex:0 0 auto; align-self:flex-end;">
-            <button id="btn-search-student">
-              查詢
-            </button>
-          </div>
-        </div>
-
-        <!-- 到職日 -->
         <div class="row">
-          <div class="col" style="max-width:360px;">
-            <label>到職日（yyyy / mm / dd）</label>
-            <div class="row">
-              <div class="col">
-                <select id="hire-year"></select>
+          <!-- 左側：時數計算 & 學號 -->
+          <div class="col" style="min-width:320px; flex:1.4;">
+            <div class="section-header-title">時薪人員時數計算</div>
+            <div class="tiny mb-8" id="logged-user-label">已登入使用者：—</div>
+
+            <!-- 學號查詢 -->
+            <div class="row mb-12">
+              <div class="col" style="max-width:260px;">
+                <label for="student-id">學號</label>
+                <input type="text" id="student-id" placeholder="請輸入學號，例如：412345678" />
               </div>
-              <div class="col">
-                <select id="hire-month"></select>
-              </div>
-              <div class="col">
-                <select id="hire-day"></select>
+              <div class="col" style="flex:0 0 auto; align-self:flex-end;">
+                <button id="btn-search-student">查詢</button>
               </div>
             </div>
-          </div>
-          <div class="col">
-            <p class="tiny">
+
+            <!-- 到職日 -->
+            <div class="row">
+              <div class="col" style="max-width:360px;">
+                <label>到職日（yyyy / mm / dd）</label>
+                <div class="row">
+                  <div class="col">
+                    <select id="hire-year"></select>
+                  </div>
+                  <div class="col">
+                    <select id="hire-month"></select>
+                  </div>
+                  <div class="col">
+                    <select id="hire-day"></select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="tiny mt-8">
               ※ 月份中間若有空白（完全沒有該月工時資料列）則不列入年資月份；<br/>
               ※ 計算僅採用欄位中實際輸入的工時（含 0 小時）。
             </p>
-          </div>
-        </div>
 
-        <!-- 按鈕列 -->
-        <div class="row mt-12" style="justify-content:flex-start; gap:8px; flex-wrap:wrap;">
-          <button id="btn-add-row">＋ 新增下一筆資料</button>
-          <button id="btn-calc" class="secondary">開始計算</button>
-          <button id="btn-clear" class="secondary">全部清除</button>
-          <button id="btn-export" class="secondary">匯出 Excel</button>
+            <!-- 按鈕列 -->
+            <div class="row mt-12" style="justify-content:flex-start; gap:8px; flex-wrap:wrap;">
+              <button id="btn-add-row">＋ 新增下一筆資料</button>
+              <button id="btn-calc" class="secondary">開始計算</button>
+              <button id="btn-clear" class="secondary">全部清除</button>
+              <button id="btn-export" class="secondary">匯出 Excel</button>
+            </div>
+          </div>
+
+          <!-- 右側：計算結果摘要 -->
+          <div class="col" style="min-width:260px; flex:1;">
+            <div class="summary-box">
+              <div class="summary-box-title">試算結果摘要</div>
+              <div id="calc-message" class="tiny" style="margin-bottom:8px;">
+                尚未計算，請輸入到職日與每月工時後，按下「開始計算」。
+              </div>
+
+              <div class="summary-row">
+                <strong>任職區間：</strong><span id="res-period">—</span>
+              </div>
+              <div class="summary-row">
+                <strong>共</strong> <span id="res-period-months">—</span> <strong>月</strong>
+              </div>
+              <div class="summary-row">
+                <strong>總工時：</strong><span id="res-total-hours">—</span> 小時
+              </div>
+              <div class="summary-row">
+                <strong>累計年資：</strong><span id="res-seniority">—</span>
+              </div>
+
+              <div class="summary-legal">
+                <strong>法定特休計算</strong>
+                <div id="res-legal-list" class="tiny" style="margin-top:4px;"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- 每月工時登記 -->
       <div class="section mt-16">
-        <div class="section-header">
-          <h2>每月工時登記</h2>
-          <span class="tiny">預設排序：年份 / 月份 由新到舊（Z → A）</span>
-        </div>
+        <div class="section-header-title">每月工時登記</div>
+        <p class="tiny">預設排序：年份 / 月份 由新到舊（Z → A）</p>
 
         <table>
           <thead>
@@ -455,50 +480,32 @@
           ※ 第一筆預設帶入到職年月（yyyy / mm）。
         </p>
       </div>
-
-      <!-- 計算結果 -->
-      <div class="section mt-16">
-        <div class="section-header">
-          <h2>計算結果</h2>
-        </div>
-        <div id="calc-message" class="tiny" style="margin-bottom:8px;">
-          尚未計算，請輸入到職日與每月工時後，按下「開始計算」。
-        </div>
-        <div class="result-grid">
-          <div class="pill">
-            <div class="pill-label">累計有效月份（有資料列）</div>
-            <div id="res-months">—</div>
-          </div>
-          <div class="pill">
-            <div class="pill-label">累計總工時（含 0 小時月份）</div>
-            <div id="res-total-hours">—</div>
-          </div>
-          <div class="pill">
-            <div class="pill-label">適用年資區間</div>
-            <div id="res-bracket">—</div>
-          </div>
-          <div class="pill">
-            <div class="pill-label">法定年休假天數（對應區間）</div>
-            <div id="res-legal-days">—</div>
-          </div>
-          <div class="pill">
-            <div class="pill-label">換算標準工時（小時）</div>
-            <div id="res-standard-hours">—</div>
-          </div>
-          <div class="pill">
-            <div class="pill-label">部分工時特休時數（小時）</div>
-            <div id="res-leave-hours">—</div>
-          </div>
-          <div class="pill">
-            <div class="pill-label">折算天數（以 8 小時為 1 日）</div>
-            <div id="res-leave-days">—</div>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 
   <script>
+    /************************************************
+     * 共用小工具（日期處理）
+     ************************************************/
+    function pad2(n) {
+      return String(n).padStart(2, "0");
+    }
+    function makeDateFromYMD(y, m, d) {
+      return new Date(y, m - 1, d);
+    }
+    function formatDate(d) {
+      const y = d.getFullYear();
+      const m = pad2(d.getMonth() + 1);
+      const day = pad2(d.getDate());
+      return `${y}-${m}-${day}`;
+    }
+    function addMonths(date, months) {
+      const d = new Date(date.getTime());
+      const newMonth = d.getMonth() + months;
+      d.setMonth(newMonth);
+      return d;
+    }
+
     /************************************************
      * 登入 & 資安相關（前端示意版）
      ************************************************/
@@ -631,8 +638,7 @@
 
         saveLockState(lockState);
         showLoginStatus(msg, "error");
-        // 為了防止暴力攻擊，錯誤後也重生一組 captcha
-        generateCaptcha();
+        generateCaptcha(); // 防暴力：錯誤後重生 captcha
       }
     });
 
@@ -702,8 +708,8 @@
 
     initHireDateOptions();
 
+    // ★ 渲染每月工時：包含 Tab / Enter 像 Excel 一樣往下跳 ★
     function renderHoursTable() {
-      // sort
       const data = [...hoursData];
       data.sort((a, b) => {
         if (sortState.key === "year") {
@@ -764,6 +770,8 @@
         inputH.min = "0";   // 允許 0 小時
         inputH.max = "999";
         inputH.value = row.hours.toString();
+
+        // 值變更時更新資料
         inputH.addEventListener("change", () => {
           const v = parseFloat(inputH.value);
           if (isNaN(v) || v < 0 || v > 999) {
@@ -773,6 +781,24 @@
             row.hours = v;
           }
         });
+
+        // Tab / Enter 像 Excel 一樣往下跳；Shift+Tab 往上
+        inputH.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === "Tab") {
+            e.preventDefault();
+            const inputs = Array.from(
+              document.querySelectorAll('#hours-body input[type="number"]')
+            );
+            const idx = inputs.indexOf(e.target);
+            if (idx === -1) return;
+            const nextIndex = e.shiftKey ? idx - 1 : idx + 1;
+            if (nextIndex >= 0 && nextIndex < inputs.length) {
+              inputs[nextIndex].focus();
+              inputs[nextIndex].select();
+            }
+          }
+        });
+
         tdH.appendChild(inputH);
         tr.appendChild(tdH);
 
@@ -815,14 +841,12 @@
         hours: 0
       });
 
-      // 預設排序：由新到舊
       sortState.key = "year";
       sortState.direction = "desc";
       renderHoursTable();
     }
 
     document.getElementById("btn-add-row").addEventListener("click", () => {
-      // 若完全沒有任何資料列，第一筆會帶入到職年月
       if (hoursData.length === 0) {
         const id = crypto.randomUUID ? crypto.randomUUID() : "id-" + Date.now();
         hoursData.push({
@@ -847,7 +871,7 @@
           sortState.direction = sortState.direction === "asc" ? "desc" : "asc";
         } else {
           sortState.key = key;
-          sortState.direction = "desc"; // 點擊新欄位時預設由新到舊
+          sortState.direction = "desc";
         }
         renderHoursTable();
       });
@@ -876,12 +900,10 @@
         const msg = `"${sid}" 未登入過資料或是輸入錯誤，新登記學號請按「確定」，重新查詢請按「取消」離開頁面。`;
         const ok = confirm(msg);
         if (ok) {
-          // 新登記：清空目前資料
           hoursData = [];
           renderHoursTable();
           resetResultDisplay();
         } else {
-          // 取消：僅清空學號欄位
           document.getElementById("student-id").value = "";
         }
         return;
@@ -913,14 +935,48 @@
           hireDay: 1,
           records: [
             { year: 2023, month: 3, hours: 33 },
-            { year: 2023, month: 4, hours: 0 },   // 特別示範 0 小時也算月份
+            { year: 2023, month: 4, hours: 0 },
             { year: 2023, month: 5, hours: 45 },
-            { year: 2023, month: 7, hours: 60 },  // 故意跳過 6 月，表示該月不列入年資
+            { year: 2023, month: 7, hours: 60 },
           ]
         };
       }
-      // 其他學號目前都視為無紀錄
       return null;
+    }
+
+    // 法定特休級距設定（用「有效月份數」判斷達到哪一級）
+    const LEGAL_THRESHOLDS = [
+      { key: "6m",  label: "到職滿 6 個月", monthsRequired: 6,  legalDays: 3,  standardHours: 1044 },
+      { key: "1y",  label: "到職滿 1 年",   monthsRequired: 12, legalDays: 7,  standardHours: 2088 },
+      { key: "2y",  label: "到職滿 2 年",   monthsRequired: 24, legalDays: 10, standardHours: 2088 },
+      { key: "3y",  label: "到職滿 3 年",   monthsRequired: 36, legalDays: 10, standardHours: 2088 },
+      { key: "4y",  label: "到職滿 4 年",   monthsRequired: 48, legalDays: 14, standardHours: 2088 },
+      { key: "5y",  label: "到職滿 5 年",   monthsRequired: 60, legalDays: 14, standardHours: 2088 },
+    ];
+
+    // 回傳目前「已達到」的級距（最高一個）
+    function determineBracketByMonths(monthsCount) {
+      let hit = null;
+      for (const th of LEGAL_THRESHOLDS) {
+        if (monthsCount >= th.monthsRequired) {
+          hit = th;
+        }
+      }
+      return hit;
+    }
+
+    // 回傳「已達到級距」的所有列文字（給畫面與匯出用）
+    function getLegalSummaryLines(monthsCount, totalHours, hireDate) {
+      const lines = [];
+      for (const th of LEGAL_THRESHOLDS) {
+        if (monthsCount >= th.monthsRequired) {
+          const endDate = addMonths(hireDate, th.monthsRequired);
+          const leaveHours = totalHours / th.standardHours * 8 * th.legalDays;
+          const range = `(${formatDate(hireDate)} ~ ${formatDate(endDate)})`;
+          lines.push(`${range}${th.label}：${leaveHours.toFixed(2)} 小時`);
+        }
+      }
+      return lines;
     }
 
     // 計算特休
@@ -930,87 +986,84 @@
         return;
       }
 
-      // 只計算有資料的月份（含 0 小時）
       const validRows = hoursData.filter(r => typeof r.hours === "number" && !isNaN(r.hours));
       const monthsCount = validRows.length;
       const totalHours = validRows.reduce((sum, r) => sum + r.hours, 0);
 
-      const bracket = determineBracketByMonths(monthsCount);
-      if (!bracket) {
-        document.getElementById("calc-message").textContent =
+      const resPeriodEl = document.getElementById("res-period");
+      const resPeriodMonthsEl = document.getElementById("res-period-months");
+      const resTotalHoursEl = document.getElementById("res-total-hours");
+      const resSeniorityEl = document.getElementById("res-seniority");
+      const resLegalListEl = document.getElementById("res-legal-list");
+      const calcMsgEl = document.getElementById("calc-message");
+
+      // 任職區間：以「有資料的最早一筆 ~ 最新一筆」表示
+      if (validRows.length > 0) {
+        const sorted = [...validRows].sort((a, b) =>
+          (a.year - b.year) || (a.month - b.month)
+        );
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
+        const startDate = makeDateFromYMD(first.year, first.month, 1);
+        const endDate = makeDateFromYMD(last.year, last.month, 1);
+        resPeriodEl.textContent = `${formatDate(startDate)} ~ ${formatDate(endDate)}`;
+      } else {
+        resPeriodEl.textContent = "—";
+      }
+
+      resPeriodMonthsEl.textContent = monthsCount.toString();
+      resTotalHoursEl.textContent = totalHours.toFixed(1);
+
+      // 累計年資 (年 / 月，以「有效月份數」概算)
+      const years = Math.floor(monthsCount / 12);
+      const months = monthsCount % 12;
+      if (monthsCount === 0) {
+        resSeniorityEl.textContent = "—";
+      } else {
+        resSeniorityEl.textContent = `${years} 年 ${months} 月（依實際填寫之有效月份概算）`;
+      }
+
+      resLegalListEl.innerHTML = "";
+
+      // 若未滿 6 個「有效月份」，不產生特休
+      if (monthsCount < 6) {
+        calcMsgEl.textContent =
           "有效月份未滿 6 個月，目前依勞基法不產生特別休假（此結果只作為概算參考）。";
-        document.getElementById("res-months").textContent = monthsCount.toString();
-        document.getElementById("res-total-hours").textContent = totalHours.toFixed(1);
-        document.getElementById("res-bracket").textContent = "未滿 6 個月（不適用特休）";
-        document.getElementById("res-legal-days").textContent = "—";
-        document.getElementById("res-standard-hours").textContent = "—";
-        document.getElementById("res-leave-hours").textContent = "—";
-        document.getElementById("res-leave-days").textContent = "—";
         return;
       }
 
-      const { label, legalDays, standardHours } = bracket;
-      const leaveHours = totalHours / standardHours * 8 * legalDays;
-      const leaveDays = leaveHours / 8;
+      // 取得到職日
+      const hireY = parseInt(hireYearSel.value, 10);
+      const hireM = parseInt(hireMonthSel.value, 10);
+      const hireD = parseInt(hireDaySel.value, 10);
+      const hireDate = makeDateFromYMD(hireY, hireM, hireD);
 
-      document.getElementById("calc-message").textContent =
-        "已依目前欄位內的工時資料（含 0 小時月份、不含完全缺漏的月份）進行部分工時特休試算。";
-      document.getElementById("res-months").textContent = monthsCount.toString();
-      document.getElementById("res-total-hours").textContent = totalHours.toFixed(1);
-      document.getElementById("res-bracket").textContent = label;
-      document.getElementById("res-legal-days").textContent = legalDays + " 日";
-      document.getElementById("res-standard-hours").textContent = standardHours + " 小時";
-      document.getElementById("res-leave-hours").textContent = leaveHours.toFixed(2) + " 小時";
-      document.getElementById("res-leave-days").textContent = leaveDays.toFixed(2) + " 日";
+      // 已達級距清單（顯示 6 個月 / 1 年 / 2 年 / 3 年 / 4 年 / 5 年 中「已達到」的）
+      const lines = getLegalSummaryLines(monthsCount, totalHours, hireDate);
+      if (lines.length === 0) {
+        calcMsgEl.textContent = "目前尚未達到任何特休級距。";
+      } else {
+        const highest = determineBracketByMonths(monthsCount);
+        calcMsgEl.textContent =
+          `目前有效月份為 ${monthsCount} 個月，已達「${highest.label}」級距（僅為依工時換算之概算結果）。`;
+
+        for (const text of lines) {
+          const div = document.createElement("div");
+          div.className = "summary-row";
+          div.textContent = text;
+          resLegalListEl.appendChild(div);
+        }
+      }
     });
 
     function resetResultDisplay() {
       document.getElementById("calc-message").textContent =
         "尚未計算，請輸入到職日與每月工時後，按下「開始計算」。";
-      document.getElementById("res-months").textContent = "—";
+      document.getElementById("res-period").textContent = "—";
+      document.getElementById("res-period-months").textContent = "—";
       document.getElementById("res-total-hours").textContent = "—";
-      document.getElementById("res-bracket").textContent = "—";
-      document.getElementById("res-legal-days").textContent = "—";
-      document.getElementById("res-standard-hours").textContent = "—";
-      document.getElementById("res-leave-hours").textContent = "—";
-      document.getElementById("res-leave-days").textContent = "—";
-    }
-
-    // 依「有效月份數」決定適用公式區間
-    function determineBracketByMonths(monthsCount) {
-      if (monthsCount < 6) {
-        return null;
-      }
-      // 6 ～ 11 個「有資料月份」：視為第 1 年（滿 6 個月）
-      if (monthsCount >= 6 && monthsCount < 12) {
-        return {
-          label: "到職滿 6 個月以上未滿 1 年",
-          legalDays: 3,
-          standardHours: 1044
-        };
-      }
-      // 12 ～ 23 個：第 2 年
-      if (monthsCount >= 12 && monthsCount < 24) {
-        return {
-          label: "到職第 2 年",
-          legalDays: 7,
-          standardHours: 2088
-        };
-      }
-      // 24 ～ 35 個：第 3 年
-      if (monthsCount >= 24 && monthsCount < 36) {
-        return {
-          label: "到職第 3 年",
-          legalDays: 10,
-          standardHours: 2088
-        };
-      }
-      // 36 ～ 59 個：第 4～5 年（簡化）
-      return {
-        label: "到職第 4～5 年（簡化區間）",
-        legalDays: 14,
-        standardHours: 2088
-      };
+      document.getElementById("res-seniority").textContent = "—";
+      document.getElementById("res-legal-list").innerHTML = "";
     }
 
     // 匯出 Excel
@@ -1024,6 +1077,19 @@
         return;
       }
 
+      const validRows = hoursData.filter(r => typeof r.hours === "number" && !isNaN(r.hours));
+      const monthsCount = validRows.length;
+      const totalHours = validRows.reduce((sum, r) => sum + r.hours, 0);
+
+      const hireY = parseInt(hireYearSel.value, 10);
+      const hireM = parseInt(hireMonthSel.value, 10);
+      const hireD = parseInt(hireDaySel.value, 10);
+      const hireDate = makeDateFromYMD(hireY, hireM, hireD);
+
+      const lines = monthsCount >= 6
+        ? getLegalSummaryLines(monthsCount, totalHours, hireDate)
+        : [];
+
       const header = ["年", "月", "當月工時（小時）"];
       const rows = [...hoursData]
         .sort((a, b) => (b.year - a.year) || (b.month - a.month))
@@ -1033,13 +1099,40 @@
 
       wsData.push([]);
       wsData.push(["試算摘要"]);
-      wsData.push(["有效月份數", document.getElementById("res-months").textContent]);
-      wsData.push(["累計總工時", document.getElementById("res-total-hours").textContent]);
-      wsData.push(["適用年資區間", document.getElementById("res-bracket").textContent]);
-      wsData.push(["法定年休假天數", document.getElementById("res-legal-days").textContent]);
-      wsData.push(["換算標準工時", document.getElementById("res-standard-hours").textContent]);
-      wsData.push(["部分工時特休時數", document.getElementById("res-leave-hours").textContent]);
-      wsData.push(["折算特休天數（8 小時/日）", document.getElementById("res-leave-days").textContent]);
+
+      // 任職區間（同畫面顯示邏輯）
+      if (validRows.length > 0) {
+        const sorted = [...validRows].sort((a, b) =>
+          (a.year - b.year) || (a.month - b.month)
+        );
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
+        const startDate = makeDateFromYMD(first.year, first.month, 1);
+        const endDate = makeDateFromYMD(last.year, last.month, 1);
+        wsData.push(["任職區間", `${formatDate(startDate)} ~ ${formatDate(endDate)}`]);
+      } else {
+        wsData.push(["任職區間", "—"]);
+      }
+
+      const years = Math.floor(monthsCount / 12);
+      const months = monthsCount % 12;
+
+      wsData.push(["有效月份數", monthsCount]);
+      wsData.push(["累計總工時", totalHours.toFixed(1)]);
+      wsData.push(["累計年資（年/月）", `${years} 年 ${months} 月`]);
+
+      wsData.push([]);
+      wsData.push(["法定特休計算"]);
+
+      if (monthsCount < 6) {
+        wsData.push(["有效月份未滿 6 個月，無特休（僅為概算參考）。"]);
+      } else if (lines.length === 0) {
+        wsData.push(["目前尚未達到任何特休級距。"]);
+      } else {
+        for (const text of lines) {
+          wsData.push([text]);
+        }
+      }
 
       const ws = XLSX.utils.aoa_to_sheet(wsData);
       const wb = XLSX.utils.book_new();
