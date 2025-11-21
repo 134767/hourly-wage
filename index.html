@@ -1,682 +1,1019 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <title>時薪人員特休時數計算</title>
+  <meta charset="utf-8" />
+  <title>時薪人員特休計算系統</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- 匯出 Excel 用的 SheetJS（前端生成 .xlsx） -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <style>
+    * { box-sizing: border-box; }
     body {
-      font-family: "Microsoft JhengHei", Arial, sans-serif;
-      background: #f7f7f7;
       margin: 0;
-      padding: 40px 20px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      min-height: 100vh;
       display: flex;
+      align-items: center;
       justify-content: center;
+      padding: 16px;
+    }
+    .app-shell {
+      max-width: 1100px;
+      width: 100%;
+      background: #020617;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.45);
+      border: 1px solid #1f2937;
+    }
+    h1, h2, h3 {
+      margin: 0 0 12px;
+      font-weight: 600;
+    }
+    h1 { font-size: 24px; color: #fbbf24; display: flex; align-items: center; gap: 8px; }
+    h1 span.badge {
+      font-size: 11px;
+      background: #1d4ed8;
+      padding: 2px 8px;
+      border-radius: 999px;
+      color: #e5e7eb;
+    }
+    p { margin: 4px 0 8px; font-size: 13px; color: #9ca3af; }
+
+    label { font-size: 13px; color: #e5e7eb; display: block; margin-bottom: 4px; }
+    input, select, button {
+      font-family: inherit;
+      font-size: 14px;
+    }
+    input[type="text"], input[type="password"], input[type="number"], select {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #e5e7eb;
+      outline: none;
+    }
+    input:focus, select:focus {
+      border-color: #f59e0b;
+      box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.4);
+    }
+    button {
+      border-radius: 999px;
+      padding: 6px 14px;
+      border: none;
+      cursor: pointer;
+      background: #f59e0b;
+      color: #111827;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    button.secondary {
+      background: #111827;
+      color: #e5e7eb;
+      border: 1px solid #374151;
+    }
+    button.danger {
+      background: #b91c1c;
+      color: #fee2e2;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
 
-    .container {
-      width: 90%;
-      max-width: 900px;
-      background: white;
-      padding: 30px;
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .col {
+      flex: 1;
+      min-width: 160px;
+    }
+    .mt-8 { margin-top: 8px; }
+    .mt-12 { margin-top: 12px; }
+    .mt-16 { margin-top: 16px; }
+    .mt-24 { margin-top: 24px; }
+    .mb-8 { margin-bottom: 8px; }
+    .mb-12 { margin-bottom: 12px; }
+    .mb-16 { margin-bottom: 16px; }
+
+    .section {
       border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+      border: 1px solid #1f2937;
+      padding: 12px 16px 16px;
+      background: radial-gradient(circle at top left, rgba(15,23,42,0.9), #020617);
+      margin-top: 12px;
     }
-
-    h1 {
-      text-align: center;
-      font-size: 32px;
-      margin-bottom: 20px;
-      color: #333;
-    }
-    h2 {
-      font-size: 22px;
-      margin-top: 30px;
-      color: #444;
-    }
-    h3 {
-      font-size: 18px;
-      margin-top: 16px;
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       margin-bottom: 8px;
-      color: #555;
+    }
+    .section-header h2 {
+      font-size: 16px;
+      color: #e5e7eb;
     }
 
+    /* Login view */
+    #login-view {
+      display: block;
+    }
+    #app-view {
+      display: none;
+    }
+    .login-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr);
+      gap: 16px;
+    }
+    @media (max-width: 800px) {
+      .login-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+    .card {
+      border-radius: 12px;
+      border: 1px solid #1f2937;
+      padding: 12px 14px 14px;
+      background: linear-gradient(145deg, #020617, #020617);
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .card-header h3 {
+      font-size: 15px;
+      color: #e5e7eb;
+    }
+    .tag {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #1f2937;
+      color: #9ca3af;
+    }
+
+    /* 圖形鎖 */
+    .pattern-lock {
+      width: 180px;
+      height: 180px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 8px;
+      margin: 8px auto 4px;
+      touch-action: none;
+    }
+    .pattern-node {
+      border-radius: 999px;
+      border: 2px solid #4b5563;
+      background: radial-gradient(circle at 30% 30%, #111827, #020617);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #6b7280;
+      font-size: 13px;
+      user-select: none;
+    }
+    .pattern-node.active {
+      border-color: #f59e0b;
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4);
+      color: #fef3c7;
+    }
+    .tiny {
+      font-size: 11px;
+      color: #9ca3af;
+      text-align: center;
+    }
+    .status {
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .status.ok { color: #4ade80; }
+    .status.warn { color: #facc15; }
+    .status.error { color: #f87171; }
+
+    /* Hours table */
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+    thead {
+      background: #020617;
     }
     th, td {
-      border: 1px solid #ccc;
-      padding: 10px;
-      text-align: center;
-      font-size: 16px;
+      border-bottom: 1px solid #1f2937;
+      padding: 4px 6px;
+      text-align: left;
+      white-space: nowrap;
     }
     th {
-      background: #f0f0f0;
-    }
-
-    input, select {
-      padding: 6px;
-      font-size: 16px;
-      width: 90%;
-    }
-
-    .btn {
-      padding: 10px 20px;
-      font-size: 18px;
-      margin: 10px 5px;
+      font-weight: 600;
+      color: #e5e7eb;
       cursor: pointer;
-      border: none;
-      border-radius: 6px;
-      transition: 0.2s;
+      user-select: none;
     }
-    .btn-add {
-      background: #4caf50;
-      color: white;
+    tbody tr:nth-child(even) {
+      background: #020617;
     }
-    .btn-add:hover {
-      background: #45a049;
+    tbody tr:nth-child(odd) {
+      background: #020617;
     }
-    .btn-calc {
-      background: #2196f3;
-      color: white;
-    }
-    .btn-calc:hover {
-      background: #1976d2;
-    }
-    .btn-export {
-      background: #ff9800;
-      color: white;
-    }
-    .btn-export:hover {
-      background: #fb8c00;
-    }
-    .btn-del-row {
-      background: #e11d48;
-      color: #fff;
-      padding: 4px 10px;
-      font-size: 14px;
-      border-radius: 4px;
-      border: none;
-      cursor: pointer;
-    }
-    .btn-del-row:hover {
-      background: #be123c;
+    .btn-icon {
+      padding: 2px 8px;
+      font-size: 12px;
+      border-radius: 999px;
     }
 
-    #resultArea {
-      white-space: pre-wrap;
-      font-size: 18px;
-      background: #fafafa;
-      padding: 20px;
-      border-radius: 8px;
-      border: 1px solid #ddd;
-      margin-top: 20px;
-      line-height: 1.6;
+    /* Result */
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 8px;
+      margin-top: 8px;
     }
-
-    label {
-      font-size: 18px;
+    .pill {
+      padding: 6px 8px;
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      font-size: 12px;
     }
-
-    .hire-row {
-      margin-bottom: 10px;
-    }
-    .hire-select {
-      width: auto;
-      min-width: 80px;
-      margin-left: 6px;
-      margin-right: 6px;
-    }
-
-    .info-text {
-      font-size: 16px;
-      line-height: 1.8;
-      color: #444;
-    }
-    .info-text ul {
-      padding-left: 20px;
-      margin-top: 6px;
-      margin-bottom: 6px;
-    }
-    .info-text li {
-      margin-bottom: 4px;
-    }
-
-    .small-note {
-      font-size: 14px;
-      color: #666;
-      margin-top: 4px;
+    .pill-label {
+      color: #9ca3af;
+      margin-bottom: 2px;
+      font-size: 11px;
     }
   </style>
-  <!-- 匯出 xlsx 用的 SheetJS（純前端） -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
+  <div class="app-shell">
 
-<div class="container">
+    <h1>
+      時薪人員特休計算系統
+      <span class="badge">GitHub Pages 版本</span>
+    </h1>
+    <p>※ 此版本為前端樣板，帳號鎖定 / 圖形鎖 / IP 鎖等資安機制請搭配後端實作。</p>
 
-  <h1>時薪人員特休時數計算</h1>
+    <!-- ========== Login View ========== -->
+    <div id="login-view">
+      <div class="login-grid mt-12">
+        <!-- 帳號 / 密碼 -->
+        <div class="card">
+          <div class="card-header">
+            <h3>登入驗證</h3>
+            <span class="tag">帳號＋密碼</span>
+          </div>
+          <div class="row">
+            <div class="col">
+              <label for="login-account">帳號</label>
+              <input type="text" id="login-account" placeholder="例如：staff01" autocomplete="username" />
+            </div>
+            <div class="col">
+              <label for="login-password">密碼</label>
+              <input type="password" id="login-password" placeholder="請輸入密碼" autocomplete="current-password" />
+            </div>
+          </div>
+          <p class="tiny mt-8">
+            測試預設帳號：<code>demo</code>　密碼：<code>demo1234</code><br/>
+            實務請改為後端驗證與雜湊儲存。
+          </p>
+          <div class="mt-8 row" style="align-items:center; justify-content:space-between;">
+            <div class="status" id="login-status"></div>
+            <div>
+              <button id="btn-login">登入系統</button>
+              <button id="btn-login-clear" class="secondary">清除</button>
+            </div>
+          </div>
+        </div>
 
-  <div class="hire-row">
-    <label>
-      學號（選填）：
-      <input type="text" id="studentId" style="width:200px;">
-    </label>
-  </div>
+        <!-- 圖形鎖 & 資安提示 -->
+        <div class="card">
+          <div class="card-header">
+            <h3>第二道驗證：圖形鎖</h3>
+            <span class="tag">Pattern Lock</span>
+          </div>
+          <p class="tiny">請依順序點擊 3×3 節點，解鎖圖形鎖。（預設樣板，實務請改為後端驗證）</p>
 
-  <div class="hire-row">
-    <label>
-      到職日（第一次聘用的時間，選填）：
-      <select id="hireYear" class="hire-select">
-        <option value="">年份</option>
-      </select>
-      年
-      <select id="hireMonth" class="hire-select">
-        <option value="">月份</option>
-        <option value="01">1</option>
-        <option value="02">2</option>
-        <option value="03">3</option>
-        <option value="04">4</option>
-        <option value="05">5</option>
-        <option value="06">6</option>
-        <option value="07">7</option>
-        <option value="08">8</option>
-        <option value="09">9</option>
-        <option value="10">10</option>
-        <option value="11">11</option>
-        <option value="12">12</option>
-      </select>
-      月
-      <!-- 日固定為 1 號，不顯示在畫面上 -->
-      <input type="hidden" id="hireDay" value="01">
-    </label>
-    <div class="small-note">
-      ※ 若有填入到職日，年資級距將以到職日起算；未填入則以第一筆有登記工時之年月作為起算月。<br>
-      ※ 月份中間若有空白（未填任何工時資料）則不列入年資月份。
+          <div class="pattern-lock" id="pattern-lock"></div>
+          <div class="tiny">目前輸入序列：<span id="pattern-display">（尚未輸入）</span></div>
+          <div class="status" id="pattern-status"></div>
+
+          <p class="tiny mt-8">
+            帳號登入安全策略（前端示意，實務應由後端強制）：<br/>
+            ・同一帳號連續錯誤 <b>3</b> 次 → 暫時鎖定 <b>10 分鐘</b><br/>
+            ・累計錯誤 <b>5</b> 次 → 永久鎖定，由管理人員解鎖<br/>
+            ・IP 鎖建議於後端記錄來源 IP，配合防火牆或反向代理。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== Main App View ========== -->
+    <div id="app-view">
+      <!-- 基本資訊：學號 & 到職日 & 按鈕列 -->
+      <div class="section mt-16">
+        <div class="section-header">
+          <h2>時薪人員時數計算</h2>
+          <span class="tag" id="logged-user-label">已登入使用者：—</span>
+        </div>
+
+        <!-- 學號查詢 -->
+        <div class="row mb-12">
+          <div class="col" style="max-width:260px;">
+            <label for="student-id">學號</label>
+            <input type="text" id="student-id" placeholder="請輸入學號，例如：412345678" />
+          </div>
+          <div class="col" style="flex:0 0 auto; align-self:flex-end;">
+            <button id="btn-search-student">
+              查詢
+            </button>
+          </div>
+        </div>
+
+        <!-- 到職日 -->
+        <div class="row">
+          <div class="col" style="max-width:360px;">
+            <label>到職日（yyyy / mm / dd）</label>
+            <div class="row">
+              <div class="col">
+                <select id="hire-year"></select>
+              </div>
+              <div class="col">
+                <select id="hire-month"></select>
+              </div>
+              <div class="col">
+                <select id="hire-day"></select>
+              </div>
+            </div>
+          </div>
+          <div class="col">
+            <p class="tiny">
+              ※ 月份中間若有空白（完全沒有該月工時資料列）則不列入年資月份；<br/>
+              ※ 計算僅採用欄位中實際輸入的工時（含 0 小時）。
+            </p>
+          </div>
+        </div>
+
+        <!-- 按鈕列 -->
+        <div class="row mt-12" style="justify-content:flex-start; gap:8px; flex-wrap:wrap;">
+          <button id="btn-add-row">＋ 新增下一筆資料</button>
+          <button id="btn-calc" class="secondary">開始計算</button>
+          <button id="btn-clear" class="secondary">全部清除</button>
+          <button id="btn-export" class="secondary">匯出 Excel</button>
+        </div>
+      </div>
+
+      <!-- 每月工時登記 -->
+      <div class="section mt-16">
+        <div class="section-header">
+          <h2>每月工時登記</h2>
+          <span class="tiny">預設排序：年份 / 月份 由新到舊（Z → A）</span>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th data-sort-key="year">年 ▲▼</th>
+              <th data-sort-key="month">月 ▲▼</th>
+              <th data-sort-key="hours">當月工時（小時） ▲▼</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="hours-body">
+            <!-- 動態插入 -->
+          </tbody>
+        </table>
+        <p class="tiny mt-8">
+          ※ (年)、(月) 為下拉選單，當月工時僅接受數值；建議區間 0～999。<br/>
+          ※ 第一筆預設帶入到職年月（yyyy / mm）。
+        </p>
+      </div>
+
+      <!-- 計算結果 -->
+      <div class="section mt-16">
+        <div class="section-header">
+          <h2>計算結果</h2>
+        </div>
+        <div id="calc-message" class="tiny" style="margin-bottom:8px; color:#9ca3af;">
+          尚未計算，請輸入到職日與每月工時後，按下「開始計算」。
+        </div>
+        <div class="result-grid">
+          <div class="pill">
+            <div class="pill-label">累計有效月份（有資料列）</div>
+            <div id="res-months">—</div>
+          </div>
+          <div class="pill">
+            <div class="pill-label">累計總工時（含 0 小時月份）</div>
+            <div id="res-total-hours">—</div>
+          </div>
+          <div class="pill">
+            <div class="pill-label">適用年資區間</div>
+            <div id="res-bracket">—</div>
+          </div>
+          <div class="pill">
+            <div class="pill-label">法定年休假天數（對應區間）</div>
+            <div id="res-legal-days">—</div>
+          </div>
+          <div class="pill">
+            <div class="pill-label">換算標準工時（小時）</div>
+            <div id="res-standard-hours">—</div>
+          </div>
+          <div class="pill">
+            <div class="pill-label">部分工時特休時數（小時）</div>
+            <div id="res-leave-hours">—</div>
+          </div>
+          <div class="pill">
+            <div class="pill-label">折算天數（以 8 小時為 1 日）</div>
+            <div id="res-leave-days">—</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <h2>每月工時登記</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>年</th>
-        <th>月</th>
-        <th>當月工時（小時）</th>
-        <th>刪除</th>
-      </tr>
-    </thead>
-    <tbody id="rowsBody"></tbody>
-  </table>
+  <script>
+    /************************************************
+     * 登入 & 資安相關（前端示意版）
+     ************************************************/
 
-  <button class="btn btn-add" id="btnAddRow">＋ 新增下一筆資料</button>
-  <button class="btn btn-calc" id="btnCalc">開始計算</button>
-  <button class="btn btn-export" id="btnExport">匯出 Excel</button>
+    const LOGIN_ACCOUNT = "demo";
+    const LOGIN_PASSWORD = "demo1234";
+    const LOGIN_PATTERN = "1-2-3-5-8"; // 預設圖形鎖序列（可自行修改）
 
-  <h2>計算結果</h2>
-  <pre id="resultArea">尚未計算</pre>
+    let currentPattern = [];
+    let isPatternVerified = false;
 
-  <!-- ========= 相關資料區塊 ========= -->
-  <h2>相關資料</h2>
+    const loginStatusEl = document.getElementById("login-status");
+    const patternStatusEl = document.getElementById("pattern-status");
+    const patternDisplayEl = document.getElementById("pattern-display");
 
-  <h3>勞工的特別休假該如何排定？天數該怎麼計算？</h3>
-  <div class="info-text">
-    <p>
-      特別休假期日，由勞工排定之。但雇主基於企業經營上之急迫需求或勞工因個人因素，得與他方協商調整。
-    </p>
-    <p>勞工在同一雇主或事業單位，繼續工作滿一定期間者，應依下列規定給予特別休假：</p>
-    <ul>
-      <li>一、6個月以上1年未滿者，3日。</li>
-      <li>二、1年以上2年未滿者，7日。</li>
-      <li>三、2年以上3年未滿者，10日。</li>
-      <li>四、3年以上5年未滿者，每年14日。</li>
-      <li>五、5年以上10年未滿者，每年15日。</li>
-      <li>六、10年以上者，每1年加給1日，加至30日為止。</li>
-    </ul>
-  </div>
-
-  <h3>公式來源：人事室</h3>
-  <div class="info-text">
-    <p>
-      工讀生年度休假須依工作時數與勞基法規定依比例結算給同學，請務必留預算並定期結算給予。<br>
-      （僱用部分時間工作勞工應行注意事項）計算參考如下：
-    </p>
-    <p>一年工作時數為 2088 小時，每日以 8 小時為計：</p>
-    <ul>
-      <li>到職 6 個月：總工時 ÷ 1044 × 8 × 法定年休假 3 日 = 部分工時休假</li>
-      <li>到職第 2 年：總工時 ÷ 2088 × 8 × 法定年休假 7 日 = 部分工時休假</li>
-      <li>到職第 3 年：總工時 ÷ 2088 × 8 × 法定年休假 10 日 = 部分工時休假</li>
-      <li>到職第 4、5 年：總工時 ÷ 2088 × 8 × 法定年休假 14 日 = 部分工時休假</li>
-    </ul>
-  </div>
-
-</div>
-
-<script>
-  const rowsBody       = document.getElementById('rowsBody');
-  const btnAddRow      = document.getElementById('btnAddRow');
-  const btnCalc        = document.getElementById('btnCalc');
-  const btnExport      = document.getElementById('btnExport');
-  const resultArea     = document.getElementById('resultArea');
-  const hireYearSelect = document.getElementById('hireYear');
-  const hireMonthSelect= document.getElementById('hireMonth');
-  const hireDayHidden  = document.getElementById('hireDay');
-  const studentIdInput = document.getElementById('studentId');
-
-  // ===== 初始化「到職年份」下拉選單 =====
-  (function initHireYearOptions() {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const startYear = currentYear - 20;
-    const endYear = currentYear + 5;
-
-    for (let y = startYear; y <= endYear; y++) {
-      const opt = document.createElement('option');
-      opt.value = String(y);
-      opt.textContent = y;
-      hireYearSelect.appendChild(opt);
+    function loadLockState() {
+      const raw = localStorage.getItem("hourly_leave_lock_state");
+      if (!raw) {
+        return {
+          failCount: 0,
+          tempLockUntil: 0,
+          permanentlyLocked: false
+        };
+      }
+      try {
+        return JSON.parse(raw);
+      } catch (e) {
+        return {
+          failCount: 0,
+          tempLockUntil: 0,
+          permanentlyLocked: false
+        };
+      }
     }
-  })();
 
-  // ===== 工具 =====
-  function fmtDate(d) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  }
-
-  // ===== 生成一列輸入列（含刪除鍵） =====
-  function addRow(defaultYear, defaultMonth) {
-    const tr = document.createElement('tr');
-
-    const tdYear = document.createElement('td');
-    const inputYear = document.createElement('input');
-    inputYear.type = 'number';
-    inputYear.min = '1900';
-    inputYear.max = '2100';
-    inputYear.name = 'year';
-    if (defaultYear) inputYear.value = defaultYear;
-    tdYear.appendChild(inputYear);
-
-    const tdMonth = document.createElement('td');
-    const selectMonth = document.createElement('select');
-    selectMonth.name = 'month';
-    for (let m = 1; m <= 12; m++) {
-      const opt = document.createElement('option');
-      opt.value = String(m).padStart(2, '0');
-      opt.textContent = m;
-      selectMonth.appendChild(opt);
+    function saveLockState(state) {
+      localStorage.setItem("hourly_leave_lock_state", JSON.stringify(state));
     }
-    if (defaultMonth) {
-      selectMonth.value = String(defaultMonth).padStart(2, '0');
+
+    function showLoginStatus(msg, type = "") {
+      loginStatusEl.textContent = msg;
+      loginStatusEl.className = "status " + (type || "");
     }
-    tdMonth.appendChild(selectMonth);
 
-    const tdHours = document.createElement('td');
-    const inputHours = document.createElement('input');
-    inputHours.type = 'number';
-    inputHours.min = '0';
-    inputHours.step = '0.1';
-    inputHours.name = 'hours';
-    tdHours.appendChild(inputHours);
+    function showPatternStatus(msg, type = "") {
+      patternStatusEl.textContent = msg;
+      patternStatusEl.className = "status " + (type || "");
+    }
 
-    const tdDel = document.createElement('td');
-    const btnDel = document.createElement('button');
-    btnDel.type = 'button';
-    btnDel.textContent = '刪除';
-    btnDel.className = 'btn-del-row';
-    btnDel.addEventListener('click', function () {
-      if (rowsBody.querySelectorAll('tr').length <= 1) {
-        alert('至少需保留一列資料。');
+    function formatTime(ts) {
+      const d = new Date(ts);
+      return d.toLocaleTimeString("zh-TW", { hour12: false });
+    }
+
+    // 登入流程
+    document.getElementById("btn-login").addEventListener("click", () => {
+      const account = document.getElementById("login-account").value.trim();
+      const password = document.getElementById("login-password").value;
+
+      const lockState = loadLockState();
+      const now = Date.now();
+
+      if (lockState.permanentlyLocked) {
+        showLoginStatus("帳號已永久鎖定，請聯繫管理人員解鎖。", "error");
         return;
       }
-      tr.remove();
-    });
-    tdDel.appendChild(btnDel);
+      if (lockState.tempLockUntil && now < lockState.tempLockUntil) {
+        showLoginStatus(
+          `帳號暫時鎖定中，請於 ${formatTime(lockState.tempLockUntil)} 之後再嘗試。`,
+          "warn"
+        );
+        return;
+      }
 
-    tr.appendChild(tdYear);
-    tr.appendChild(tdMonth);
-    tr.appendChild(tdHours);
-    tr.appendChild(tdDel);
+      if (!isPatternVerified) {
+        showLoginStatus("請先通過圖形鎖驗證。", "warn");
+        return;
+      }
 
-    rowsBody.appendChild(tr);
-  }
-
-  // 初始：先加一列，年/月抓今天
-  (function initFirstRow() {
-    const today = new Date();
-    addRow(today.getFullYear(), today.getMonth() + 1);
-  })();
-
-  // 新增一列：自動上一列 +1 個月
-  btnAddRow.addEventListener('click', function () {
-    const trs = rowsBody.querySelectorAll('tr');
-    let nextYear, nextMonth;
-
-    if (trs.length > 0) {
-      const lastTr = trs[trs.length - 1];
-      const lastYearVal = lastTr.querySelector('input[name="year"]').value;
-      const lastMonthVal = lastTr.querySelector('select[name="month"]').value;
-
-      let y = Number(lastYearVal);
-      let m = Number(lastMonthVal);
-
-      if (!y || !m) {
-        const today = new Date();
-        nextYear = today.getFullYear();
-        nextMonth = today.getMonth() + 1;
+      if (account === LOGIN_ACCOUNT && password === LOGIN_PASSWORD) {
+        // 登入成功：清空鎖定資訊
+        saveLockState({ failCount: 0, tempLockUntil: 0, permanentlyLocked: false });
+        showLoginStatus("登入成功，正在進入系統…", "ok");
+        setTimeout(() => enterApp(account), 400);
       } else {
-        m += 1;
-        if (m > 12) { m = 1; y += 1; }
-        nextYear = y;
-        nextMonth = m;
+        // 登入失敗：更新鎖定狀態
+        lockState.failCount = (lockState.failCount || 0) + 1;
+        let msg = `帳號或密碼錯誤（第 ${lockState.failCount} 次）。`;
+
+        if (lockState.failCount >= 3 && lockState.failCount < 5) {
+          const lockMinutes = 10;
+          lockState.tempLockUntil = now + lockMinutes * 60 * 1000;
+          msg += ` 已暫時鎖定 ${lockMinutes} 分鐘。`;
+        } else if (lockState.failCount >= 5) {
+          lockState.permanentlyLocked = true;
+          msg += " 已達 5 次錯誤，帳號永久鎖定，請聯繫管理人員。";
+        }
+
+        saveLockState(lockState);
+        showLoginStatus(msg, "error");
       }
-    } else {
-      const today = new Date();
-      nextYear = today.getFullYear();
-      nextMonth = today.getMonth() + 1;
+    });
+
+    document.getElementById("btn-login-clear").addEventListener("click", () => {
+      document.getElementById("login-account").value = "";
+      document.getElementById("login-password").value = "";
+      showLoginStatus("");
+    });
+
+    function enterApp(account) {
+      document.getElementById("login-view").style.display = "none";
+      document.getElementById("app-view").style.display = "block";
+      document.getElementById("logged-user-label").textContent = "已登入使用者：" + account;
     }
 
-    addRow(nextYear, nextMonth);
-  });
+    // 圖形鎖初始化
+    (function initPatternLock() {
+      const container = document.getElementById("pattern-lock");
+      for (let i = 1; i <= 9; i++) {
+        const node = document.createElement("div");
+        node.className = "pattern-node";
+        node.dataset.index = String(i);
+        node.textContent = i;
+        node.addEventListener("click", onPatternNodeClick);
+        container.appendChild(node);
+      }
+    })();
 
-  // Enter / Tab 直接跳到下一列工時
-  rowsBody.addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter' && e.key !== 'Tab') return;
-    if (e.shiftKey) return;
+    function onPatternNodeClick(e) {
+      const node = e.currentTarget;
+      const idx = node.dataset.index;
+      if (!idx) return;
 
-    const target = e.target;
-    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) return;
-
-    const tr = target.closest('tr');
-    if (!tr) return;
-
-    const rows = Array.from(rowsBody.querySelectorAll('tr'));
-    const idx = rows.indexOf(tr);
-    if (idx === -1) return;
-
-    e.preventDefault();
-
-    if (idx < rows.length - 1) {
-      const nextTr = rows[idx + 1];
-      const nextHours = nextTr.querySelector('input[name="hours"]');
-      if (nextHours) nextHours.focus();
-    } else {
-      btnAddRow.click();
-      const newRows = rowsBody.querySelectorAll('tr');
-      const lastTr = newRows[newRows.length - 1];
-      const lastHours = lastTr.querySelector('input[name="hours"]');
-      if (lastHours) lastHours.focus();
-    }
-  });
-
-  // ===== 讀取並驗證每列資料 =====
-  function getRowsOrAlert() {
-    const trs = rowsBody.querySelectorAll('tr');
-    const rows = [];
-    let rowIndex = 0;
-
-    for (const tr of trs) {
-      rowIndex++;
-      const yearStr  = tr.querySelector('input[name="year"]').value.trim();
-      const monthStr = tr.querySelector('select[name="month"]').value.trim();
-      const hoursStr = tr.querySelector('input[name="hours"]').value.trim();
-
-      // 若整列完全空白，就跳過
-      if (!yearStr && !monthStr && !hoursStr) continue;
-
-      if (!yearStr || !monthStr) {
-        alert(`第 ${rowIndex} 列年或月未填寫，請補上。`);
-        return null;
+      if (!currentPattern.includes(idx)) {
+        currentPattern.push(idx);
+        node.classList.add("active");
+        patternDisplayEl.textContent = currentPattern.join(" - ");
       }
 
-      const y = Number(yearStr);
-      const m = Number(monthStr);
-      if (!y || isNaN(y) || m < 1 || m > 12) {
-        alert(`第 ${rowIndex} 列年/月格式錯誤，請重新輸入。`);
-        return null;
+      // 略示意：最少 4 點後開始判斷
+      if (currentPattern.length >= 4) {
+        const seq = currentPattern.join("-");
+        if (seq === LOGIN_PATTERN) {
+          isPatternVerified = true;
+          showPatternStatus("圖形鎖驗證成功。", "ok");
+        } else {
+          isPatternVerified = false;
+          showPatternStatus("圖形鎖不正確，請重新輸入。", "error");
+        }
       }
-
-      if (hoursStr === "" || isNaN(Number(hoursStr))) {
-        alert(`第 ${rowIndex} 列當月工時非數字，請重新輸入。`);
-        return null;
-      }
-      const h = Number(hoursStr);
-
-      rows.push({ year: y, month: m, hours: h });
     }
 
-    if (!rows.length) {
-      alert('請至少新增一列有效的資料');
+    // 重設圖形鎖（雙擊容器）
+    document.getElementById("pattern-lock").addEventListener("dblclick", () => {
+      currentPattern = [];
+      isPatternVerified = false;
+      patternDisplayEl.textContent = "（尚未輸入）";
+      showPatternStatus("已清除圖形鎖輸入。", "warn");
+      document.querySelectorAll(".pattern-node").forEach(n => n.classList.remove("active"));
+    });
+
+    /************************************************
+     * 主程式：時數登記與特休計算
+     ************************************************/
+
+    let hoursData = []; // { id, year, month, hours }
+    let sortState = { key: "year", direction: "desc" };
+
+    const hireYearSel = document.getElementById("hire-year");
+    const hireMonthSel = document.getElementById("hire-month");
+    const hireDaySel = document.getElementById("hire-day");
+    const hoursBody = document.getElementById("hours-body");
+
+    function initHireDateOptions() {
+      const now = new Date();
+      const curYear = now.getFullYear();
+      const minYear = curYear - 10;
+      const maxYear = curYear + 1;
+
+      // 年
+      hireYearSel.innerHTML = "";
+      for (let y = maxYear; y >= minYear; y--) {
+        const opt = document.createElement("option");
+        opt.value = y;
+        opt.textContent = y.toString();
+        hireYearSel.appendChild(opt);
+      }
+      // 月
+      hireMonthSel.innerHTML = "";
+      for (let m = 1; m <= 12; m++) {
+        const opt = document.createElement("option");
+        opt.value = String(m).padStart(2, "0");
+        opt.textContent = String(m).padStart(2, "0");
+        hireMonthSel.appendChild(opt);
+      }
+      // 日
+      hireDaySel.innerHTML = "";
+      for (let d = 1; d <= 31; d++) {
+        const opt = document.createElement("option");
+        opt.value = String(d).padStart(2, "0");
+        opt.textContent = String(d).padStart(2, "0");
+        hireDaySel.appendChild(opt);
+      }
+
+      // 預設今天
+      hireYearSel.value = String(curYear);
+      hireMonthSel.value = String(now.getMonth() + 1).padStart(2, "0");
+      hireDaySel.value = String(now.getDate()).padStart(2, "0");
+    }
+
+    initHireDateOptions();
+
+    function renderHoursTable() {
+      // sort
+      const data = [...hoursData];
+      data.sort((a, b) => {
+        if (sortState.key === "year") {
+          if (a.year === b.year) return sortState.direction === "asc" ? a.month - b.month : b.month - a.month;
+          return sortState.direction === "asc" ? a.year - b.year : b.year - a.year;
+        } else if (sortState.key === "month") {
+          if (a.year === b.year) {
+            return sortState.direction === "asc" ? a.month - b.month : b.month - a.month;
+          }
+          return sortState.direction === "asc" ? a.year - b.year : b.year - a.year;
+        } else if (sortState.key === "hours") {
+          return sortState.direction === "asc" ? a.hours - b.hours : b.hours - a.hours;
+        }
+        return 0;
+      });
+
+      hoursBody.innerHTML = "";
+      for (const row of data) {
+        const tr = document.createElement("tr");
+
+        // 年
+        const tdY = document.createElement("td");
+        const selY = document.createElement("select");
+        for (let y = parseInt(hireYearSel.value, 10) + 10; y >= parseInt(hireYearSel.value, 10) - 1; y--) {
+          const opt = document.createElement("option");
+          opt.value = String(y);
+          opt.textContent = String(y);
+          selY.appendChild(opt);
+        }
+        selY.value = String(row.year);
+        selY.addEventListener("change", () => {
+          row.year = parseInt(selY.value, 10);
+        });
+        tdY.appendChild(selY);
+        tr.appendChild(tdY);
+
+        // 月
+        const tdM = document.createElement("td");
+        const selM = document.createElement("select");
+        for (let m = 1; m <= 12; m++) {
+          const opt = document.createElement("option");
+          opt.value = String(m).padStart(2, "0");
+          opt.textContent = String(m).padStart(2, "0");
+          selM.appendChild(opt);
+        }
+        selM.value = String(row.month).padStart(2, "0");
+        selM.addEventListener("change", () => {
+          row.month = parseInt(selM.value, 10);
+        });
+        tdM.appendChild(selM);
+        tr.appendChild(tdM);
+
+        // 當月工時
+        const tdH = document.createElement("td");
+        const inputH = document.createElement("input");
+        inputH.type = "number";
+        inputH.step = "0.1";
+        inputH.min = "0";   // 允許 0 小時
+        inputH.max = "999";
+        inputH.value = row.hours.toString();
+        inputH.addEventListener("change", () => {
+          const v = parseFloat(inputH.value);
+          if (isNaN(v) || v < 0 || v > 999) {
+            alert("當月工時請輸入 0～999 間的數值。");
+            inputH.value = row.hours.toString();
+          } else {
+            row.hours = v;
+          }
+        });
+        tdH.appendChild(inputH);
+        tr.appendChild(tdH);
+
+        // 刪除
+        const tdDel = document.createElement("td");
+        const btnDel = document.createElement("button");
+        btnDel.textContent = "刪除";
+        btnDel.className = "btn-icon danger";
+        btnDel.addEventListener("click", () => {
+          hoursData = hoursData.filter(r => r.id !== row.id);
+          renderHoursTable();
+        });
+        tdDel.appendChild(btnDel);
+        tr.appendChild(tdDel);
+
+        hoursBody.appendChild(tr);
+      }
+    }
+
+    function addNewRowFromButton() {
+      let year = parseInt(hireYearSel.value, 10);
+      let month = parseInt(hireMonthSel.value, 10);
+
+      if (hoursData.length > 0) {
+        // 以目前最「新」的資料當作基準，+1 月
+        const newest = [...hoursData].sort((a, b) => (b.year - a.year) || (b.month - a.month))[0];
+        year = newest.year;
+        month = newest.month + 1;
+        if (month > 12) {
+          month = 1;
+          year += 1;
+        }
+      }
+
+      const id = crypto.randomUUID ? crypto.randomUUID() : "id-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+      hoursData.push({
+        id,
+        year,
+        month,
+        hours: 0
+      });
+
+      // 預設排序：由新到舊
+      sortState.key = "year";
+      sortState.direction = "desc";
+      renderHoursTable();
+    }
+
+    document.getElementById("btn-add-row").addEventListener("click", () => {
+      // 若完全沒有任何資料列，第一筆會帶入到職年月
+      if (hoursData.length === 0) {
+        const id = crypto.randomUUID ? crypto.randomUUID() : "id-" + Date.now();
+        hoursData.push({
+          id,
+          year: parseInt(hireYearSel.value, 10),
+          month: parseInt(hireMonthSel.value, 10),
+          hours: 0
+        });
+        sortState.key = "year";
+        sortState.direction = "desc";
+        renderHoursTable();
+      } else {
+        addNewRowFromButton();
+      }
+    });
+
+    // 表頭排序
+    document.querySelectorAll("thead th[data-sort-key]").forEach(th => {
+      th.addEventListener("click", () => {
+        const key = th.dataset.sortKey;
+        if (sortState.key === key) {
+          sortState.direction = sortState.direction === "asc" ? "desc" : "asc";
+        } else {
+          sortState.key = key;
+          sortState.direction = "desc"; // 點擊新欄位時預設由新到舊
+        }
+        renderHoursTable();
+      });
+    });
+
+    // 全部清除
+    document.getElementById("btn-clear").addEventListener("click", () => {
+      if (!confirm("確定要清除此頁面上的到職日與每月工時資料？")) return;
+      hoursData = [];
+      renderHoursTable();
+      document.getElementById("student-id").value = "";
+      initHireDateOptions();
+      resetResultDisplay();
+    });
+
+    // 學號查詢（目前前端樣板：只有 demo）
+    document.getElementById("btn-search-student").addEventListener("click", () => {
+      const sid = document.getElementById("student-id").value.trim();
+      if (!sid) {
+        alert("請先輸入學號。");
+        return;
+      }
+
+      const data = fetchStudentDataMock(sid);
+      if (!data) {
+        const msg = `"${sid}" 未登入過資料或是輸入錯誤，新登記學號請按「確定」，重新查詢請按「取消」離開頁面。`;
+        const ok = confirm(msg);
+        if (ok) {
+          // 新登記：清空目前資料
+          hoursData = [];
+          renderHoursTable();
+          resetResultDisplay();
+        } else {
+          // 取消：僅清空學號欄位
+          document.getElementById("student-id").value = "";
+        }
+        return;
+      }
+
+      // 有資料：載入到職日與時數
+      hireYearSel.value = String(data.hireYear);
+      hireMonthSel.value = String(data.hireMonth).padStart(2, "0");
+      hireDaySel.value = String(data.hireDay).padStart(2, "0");
+
+      hoursData = data.records.map(r => ({
+        id: crypto.randomUUID ? crypto.randomUUID() : "id-" + Date.now() + "-" + Math.random().toString(16).slice(2),
+        year: r.year,
+        month: r.month,
+        hours: r.hours
+      }));
+      sortState.key = "year";
+      sortState.direction = "desc";
+      renderHoursTable();
+      resetResultDisplay();
+    });
+
+    // Mock：僅供測試，可替換為實際後端 API
+    function fetchStudentDataMock(sid) {
+      if (sid === "demo") {
+        return {
+          hireYear: 2023,
+          hireMonth: 3,
+          hireDay: 1,
+          records: [
+            { year: 2023, month: 3, hours: 33 },
+            { year: 2023, month: 4, hours: 0 },   // 特別示範 0 小時也算月份
+            { year: 2023, month: 5, hours: 45 },
+            { year: 2023, month: 7, hours: 60 },  // 故意跳過 6 月，表示該月不列入年資
+          ]
+        };
+      }
+      // 其他學號目前都視為無紀錄
       return null;
     }
 
-    return rows;
-  }
-
-  // ===== 勞基法級距（以「有效月份數」當作年資月份） =====
-  const LAW_LEVELS = [
-    { min:  6, max: 11, days:  3, label: "6個月以上1年未滿" },
-    { min: 12, max: 23, days:  7, label: "1年以上2年未滿" },
-    { min: 24, max: 35, days: 10, label: "2年以上3年未滿" },
-    { min: 36, max: 59, days: 14, label: "3年以上5年未滿" },
-    { min: 60, max:119, days: 15, label: "5年以上10年未滿" }
-    // 120 個月（10 年）以上另外處理
-  ];
-
-  // ===== 計算按鈕 =====
-  btnCalc.addEventListener('click', function () {
-    const rows = getRowsOrAlert();
-    if (!rows) return;
-
-    const hireYear  = hireYearSelect.value;
-    const hireMonth = hireMonthSelect.value;
-    const hireDay   = hireDayHidden.value || "01";
-
-    // 工時 + 月份統計
-    let totalHours = 0;
-    let minDate = null;
-    let maxDate = null;
-
-    const monthMap = new Map(); // key: "yyyy-mm" -> {year, month, date}
-
-    rows.forEach(r => {
-      const d = new Date(r.year, r.month - 1, 1);
-      totalHours += r.hours;
-
-      if (!minDate || d < minDate) minDate = d;
-      if (!maxDate || d > maxDate) maxDate = d;
-
-      const key = `${r.year}-${String(r.month).padStart(2,'0')}`;
-      if (!monthMap.has(key)) {
-        monthMap.set(key, { year: r.year, month: r.month, date: d });
-      }
-    });
-
-    const monthsAll = Array.from(monthMap.values()).sort((a, b) => a.date - b.date);
-    if (!monthsAll.length) {
-      resultArea.textContent = '年月資料有誤，請確認年/月欄位';
-      return;
-    }
-
-    // 基準起算日：有填到職日 → 到職日；未填 → 第一筆工時所在年月
-    let baseDate;
-    let baseText;
-    if (hireYear && hireMonth) {
-      baseDate = new Date(`${hireYear}-${hireMonth}-${hireDay}`);
-      if (isNaN(baseDate.getTime())) {
-        resultArea.textContent = '到職年月格式錯誤，無法計算特休。';
+    // 計算特休
+    document.getElementById("btn-calc").addEventListener("click", () => {
+      if (hoursData.length === 0) {
+        alert("請先建立至少一筆每月工時資料。");
         return;
       }
-      baseText = fmtDate(baseDate) + '（依到職日起算）';
-    } else {
-      baseDate = monthsAll[0].date;
-      baseText = fmtDate(baseDate) + '（未填到職日，改以第一筆工時年月起算）';
-    }
 
-    // 只留下「基準日起之後」有登記的月份
-    const monthsFiltered = monthsAll.filter(m => m.date >= baseDate);
-    const serviceMonths = monthsFiltered.length;
+      // 只計算有資料的月份（含 0 小時）
+      const validRows = hoursData.filter(r => typeof r.hours === "number" && !isNaN(r.hours));
+      const monthsCount = validRows.length;
+      const totalHours = validRows.reduce((sum, r) => sum + r.hours, 0);
 
-    const lawYears = Math.floor(serviceMonths / 12);
-    const lawMonthsRemainder = serviceMonths % 12;
-
-    const HOURS_PER_DAY = 8;
-
-    let output = "";
-
-    // 一、年資與法定特休（用「有效月份數」折算）
-    output += `一、年資與法定特休\n`;
-    output += `學號：${studentIdInput.value ? studentIdInput.value : '（未填寫）'}\n`;
-    output += `年資起算基準：${baseText}\n`;
-    output += `實際有登記之有效月份數：${serviceMonths} 個月（含工時 0）\n`;
-    output += `折算年資：約 ${lawYears} 年 ${lawMonthsRemainder} 個月（以有效月份數計）\n`;
-
-    let lawDetailLines = [];
-    let totalLawDays = 0;
-
-    if (serviceMonths < 6) {
-      lawDetailLines.push("目前有效月份未滿 6 個月，尚無法定特別休假日數。");
-    } else {
-      LAW_LEVELS.forEach(stage => {
-        if (serviceMonths >= stage.min) {
-          const startIdx = stage.min - 1;
-          const endIdx = Math.min(serviceMonths, stage.max + 1) - 1;
-          if (startIdx < monthsFiltered.length && endIdx < monthsFiltered.length) {
-            const s = monthsFiltered[startIdx];
-            const e = monthsFiltered[endIdx];
-            const periodText =
-              `${s.year}/${String(s.month).padStart(2,'0')} ~ ` +
-              `${e.year}/${String(e.month).padStart(2,'0')}`;
-            lawDetailLines.push(`${stage.label}\t${periodText}\t${stage.days} 日`);
-            totalLawDays += stage.days;
-          }
-        }
-      });
-
-      // 10 年以上（serviceMonths >= 120）
-      if (serviceMonths >= 120) {
-        const yearsOverTen = Math.floor(serviceMonths / 12) - 10;
-        const days = Math.min(15 + yearsOverTen, 30);
-        const startIdx = 120 - 1;
-        const endIdx = serviceMonths - 1;
-        if (startIdx < monthsFiltered.length && endIdx < monthsFiltered.length) {
-          const s = monthsFiltered[startIdx];
-          const e = monthsFiltered[endIdx];
-          const periodText =
-            `${s.year}/${String(s.month).padStart(2,'0')} ~ ` +
-            `${e.year}/${String(e.month).padStart(2,'0')}`;
-          lawDetailLines.push(`10年以上（每年加給1日，加至30日）\t${periodText}\t${days} 日`);
-          totalLawDays += days;
-        }
+      const bracket = determineBracketByMonths(monthsCount);
+      if (!bracket) {
+        document.getElementById("calc-message").textContent =
+          "有效月份未滿 6 個月，目前依勞基法不產生特別休假（此結果只作為概算參考）。";
+        document.getElementById("res-months").textContent = monthsCount.toString();
+        document.getElementById("res-total-hours").textContent = totalHours.toFixed(1);
+        document.getElementById("res-bracket").textContent = "未滿 6 個月（不適用特休）";
+        document.getElementById("res-legal-days").textContent = "—";
+        document.getElementById("res-standard-hours").textContent = "—";
+        document.getElementById("res-leave-hours").textContent = "—";
+        document.getElementById("res-leave-days").textContent = "—";
+        return;
       }
+
+      const { label, legalDays, standardHours } = bracket;
+      const leaveHours = totalHours / standardHours * 8 * legalDays;
+      const leaveDays = leaveHours / 8;
+
+      document.getElementById("calc-message").textContent =
+        "已依目前欄位內的工時資料（含 0 小時月份、不含完全缺漏的月份）進行部分工時特休試算。";
+      document.getElementById("res-months").textContent = monthsCount.toString();
+      document.getElementById("res-total-hours").textContent = totalHours.toFixed(1);
+      document.getElementById("res-bracket").textContent = label;
+      document.getElementById("res-legal-days").textContent = legalDays + " 日";
+      document.getElementById("res-standard-hours").textContent = standardHours + " 小時";
+      document.getElementById("res-leave-hours").textContent = leaveHours.toFixed(2) + " 小時";
+      document.getElementById("res-leave-days").textContent = leaveDays.toFixed(2) + " 日";
+    });
+
+    function resetResultDisplay() {
+      document.getElementById("calc-message").textContent =
+        "尚未計算，請輸入到職日與每月工時後，按下「開始計算」。";
+      document.getElementById("res-months").textContent = "—";
+      document.getElementById("res-total-hours").textContent = "—";
+      document.getElementById("res-bracket").textContent = "—";
+      document.getElementById("res-legal-days").textContent = "—";
+      document.getElementById("res-standard-hours").textContent = "—";
+      document.getElementById("res-leave-hours").textContent = "—";
+      document.getElementById("res-leave-days").textContent = "—";
     }
 
-    output += `\n依勞基法第 38 條，目前已涵蓋之特休級距如下（以有效月份換算）：\n\n`;
-    if (lawDetailLines.length === 1 && serviceMonths < 6) {
-      output += lawDetailLines[0] + "\n";
-    } else {
-      output += `級距\t對應期間（以實際有登記之年月為示意）\t每年特休日數\n`;
-      lawDetailLines.forEach(line => { output += line + "\n"; });
-      output += `\n若將上述各級距單純加總，示意特休日數：${totalLawDays} 日；\n`;
-      output += `若以每天 ${HOURS_PER_DAY} 小時計，合計約 ${ (totalLawDays * HOURS_PER_DAY).toFixed(2) } 小時（僅作級距示意）。\n`;
-    }
-
-    // 二、工時資料統計
-    const periodEnd = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0);
-    output += `\n二、工時資料統計\n`;
-    output += `工時資料期間（有登記工時）：${fmtDate(minDate)} ~ ${fmtDate(periodEnd)}\n`;
-    output += `共有月份筆數（實際填入的年月列數）：${rows.length} 列\n`;
-    output += `有效月份數（用於年資計算）：${serviceMonths} 個月\n`;
-    output += `全部登記工時總和：約 ${totalHours} 小時\n`;
-
-    // 三、依人事室公式換算特休時數（部分工時）
-    const FULL_YEAR = 2088;
-    const HALF_YEAR = 1044;
-    const leaveStages = [
-      { min:  6, max: 11,  days:  3, hoursBase: HALF_YEAR, label: "6個月以上1年未滿（3日）" },
-      { min: 12, max: 23,  days:  7, hoursBase: FULL_YEAR, label: "1年以上2年未滿（7日）" },
-      { min: 24, max: 35,  days: 10, hoursBase: FULL_YEAR, label: "2年以上3年未滿（10日）" },
-      { min: 36, max: 59,  days: 14, hoursBase: FULL_YEAR, label: "3年以上5年未滿（14日）" }
-      // 5 年以上後面的級距如有需要可再補
-    ];
-
-    let totalLeaveHours = 0;
-    let leaveDetailText = "";
-
-    leaveStages.forEach(stage => {
-      if (serviceMonths >= stage.min) {
-        const startIdx = stage.min - 1;
-        const endIdx = Math.min(serviceMonths, stage.max + 1) - 1;
-        if (startIdx < monthsFiltered.length && endIdx < monthsFiltered.length) {
-          const s = monthsFiltered[startIdx];
-          const e = monthsFiltered[endIdx];
-          const period =
-            `${s.year}/${String(s.month).padStart(2,'0')} - ` +
-            `${e.year}/${String(e.month).padStart(2,'0')}`;
-          const leaveHours = totalHours / stage.hoursBase * HOURS_PER_DAY * stage.days;
-          totalLeaveHours += leaveHours;
-          leaveDetailText += `${stage.label}：\n(${period})\n${leaveHours.toFixed(2)} 小時\n\n`;
-        }
+    // 依「有效月份數」決定適用公式區間
+    // 這裡依你給的 4 個公式簡化成「以有資料的月份數」當作年資的概算：
+    //   6 個月：3 日（1044 小時）
+    //   第 2 年：7 日（2088 小時）
+    //   第 3 年：10 日（2088 小時）
+    //   第 4～5 年：14 日（2088 小時）
+    function determineBracketByMonths(monthsCount) {
+      if (monthsCount < 6) {
+        return null;
       }
-    });
-
-    output += `\n三、依人事室公式換算部分工時特休\n`;
-    if (totalLeaveHours === 0) {
-      output += `目前有效月份未達 6 個月，尚無可換算之特休時數。\n`;
-    } else {
-      output += `全部總和特休時數：約 ${totalLeaveHours.toFixed(2)} 小時\n`;
-      output += leaveDetailText;
+      // 6 ～ 11 個「有資料月份」：視為第 1 年（滿 6 個月）
+      if (monthsCount >= 6 && monthsCount < 12) {
+        return {
+          label: "到職滿 6 個月以上未滿 1 年",
+          legalDays: 3,
+          standardHours: 1044
+        };
+      }
+      // 12 ～ 23 個：第 2 年
+      if (monthsCount >= 12 && monthsCount < 24) {
+        return {
+          label: "到職第 2 年",
+          legalDays: 7,
+          standardHours: 2088
+        };
+      }
+      // 24 ～ 35 個：第 3 年
+      if (monthsCount >= 24 && monthsCount < 36) {
+        return {
+          label: "到職第 3 年",
+          legalDays: 10,
+          standardHours: 2088
+        };
+      }
+      // 36 ～ 59 個：第 4～5 年（簡化）
+      return {
+        label: "到職第 4～5 年（簡化區間）",
+        legalDays: 14,
+        standardHours: 2088
+      };
     }
 
-    output += `※ 上述計算僅供內部試算參考，實際給假仍以單位規定與人事室認定為準。\n`;
+    // 匯出 Excel
+    document.getElementById("btn-export").addEventListener("click", () => {
+      if (hoursData.length === 0) {
+        alert("尚未有任何每月工時資料，無法匯出。");
+        return;
+      }
 
-    resultArea.textContent = output;
-  });
+      // 先確保目前畫面的計算結果是最新的（不強迫，但提醒）
+      if (!confirm("建議先按「開始計算」更新試算結果，再匯出。是否繼續匯出？")) {
+        return;
+      }
 
-  // ===== 匯出 Excel =====
-  btnExport.addEventListener('click', function () {
-    const rows = getRowsOrAlert();
-    if (!rows) return;
+      // 組成資料表：每月工時
+      const header = ["年", "月", "當月工時（小時）"];
+      const rows = [...hoursData]
+        .sort((a, b) => (b.year - a.year) || (b.month - a.month)) // 由新到舊
+        .map(r => [r.year, r.month, r.hours]);
 
-    const hireYear  = hireYearSelect.value;
-    const hireMonth = hireMonthSelect.value;
+      const wsData = [header, ...rows];
 
-    const aoa = [];
-    // 學號
-    aoa.push(['學號', studentIdInput.value || '未填寫']);
-    // 到職資訊
-    let hireText = '未填寫';
-    if (hireYear && hireMonth) {
-      hireText = `${hireYear}-${hireMonth}（系統預設為每月1日）`;
-    }
-    aoa.push(['到職年月', hireText]);
-    aoa.push([]);
+      // 在下方加上計算結果摘要
+      wsData.push([]);
+      wsData.push(["試算摘要"]);
+      wsData.push(["有效月份數", document.getElementById("res-months").textContent]);
+      wsData.push(["累計總工時", document.getElementById("res-total-hours").textContent]);
+      wsData.push(["適用年資區間", document.getElementById("res-bracket").textContent]);
+      wsData.push(["法定年休假天數", document.getElementById("res-legal-days").textContent]);
+      wsData.push(["換算標準工時", document.getElementById("res-standard-hours").textContent]);
+      wsData.push(["部分工時特休時數", document.getElementById("res-leave-hours").textContent]);
+      wsData.push(["折算特休天數（8 小時/日）", document.getElementById("res-leave-days").textContent]);
 
-    // 工時表
-    aoa.push(['年', '月', '當月工時（小時）']);
-    rows.forEach(r => {
-      aoa.push([r.year, String(r.month).padStart(2,'0'), r.hours]);
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "時薪特休試算");
+
+      const sid = document.getElementById("student-id").value.trim() || "noid";
+      const fileName = `hourly_leave_${sid}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      XLSX.writeFile(wb, fileName);
     });
 
-    // 計算結果
-    aoa.push([]);
-    aoa.push(['--- 計算結果 ---']);
-    const resultText = resultArea.textContent || '';
-    resultText.split('\n').forEach(line => {
-      aoa.push([line]);
-    });
-
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '工時與結果');
-
-    const fileName = '時薪人員特休時數計算.xlsx';
-    XLSX.writeFile(wb, fileName);
-  });
-</script>
-
+  </script>
 </body>
 </html>
