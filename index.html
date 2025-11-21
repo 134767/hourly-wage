@@ -164,37 +164,10 @@
       color: #9ca3af;
     }
 
-    /* 圖形鎖 */
-    .pattern-lock {
-      width: 180px;
-      height: 180px;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      grid-template-rows: repeat(3, 1fr);
-      gap: 8px;
-      margin: 8px auto 4px;
-      touch-action: none;
-    }
-    .pattern-node {
-      border-radius: 999px;
-      border: 2px solid #4b5563;
-      background: radial-gradient(circle at 30% 30%, #111827, #020617);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #6b7280;
-      font-size: 13px;
-      user-select: none;
-    }
-    .pattern-node.active {
-      border-color: #f59e0b;
-      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4);
-      color: #fef3c7;
-    }
     .tiny {
       font-size: 11px;
       color: #9ca3af;
-      text-align: center;
+      text-align: left;
     }
     .status {
       font-size: 12px;
@@ -203,6 +176,52 @@
     .status.ok { color: #4ade80; }
     .status.warn { color: #facc15; }
     .status.error { color: #f87171; }
+
+    /* 圖形文字鎖 (Captcha) */
+    .captcha-box {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .captcha-display {
+      height: 48px;
+      border-radius: 8px;
+      border: 1px solid #4b5563;
+      background: repeating-linear-gradient(
+        135deg,
+        #020617,
+        #020617 8px,
+        #111827 8px,
+        #111827 16px
+      );
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: 4px;
+      font-weight: 700;
+      font-size: 20px;
+      color: #e5e7eb;
+      text-shadow: 0 0 4px rgba(0,0,0,0.6);
+      user-select: none;
+    }
+    .captcha-display span {
+      transform: skewX(-8deg) rotate(-2deg);
+      display: inline-block;
+    }
+    .captcha-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .captcha-row input {
+      flex: 1;
+    }
+    .captcha-row button {
+      flex-shrink: 0;
+      padding-inline: 10px;
+      font-size: 12px;
+    }
 
     /* Hours table */
     table {
@@ -266,7 +285,7 @@
       時薪人員特休計算系統
       <span class="badge">GitHub Pages 版本</span>
     </h1>
-    <p>※ 此版本為前端樣板，帳號鎖定 / 圖形鎖 / IP 鎖等資安機制請搭配後端實作。</p>
+    <p>※ 此版本為前端樣板，帳號鎖定 / 圖形文字鎖 / IP 鎖等資安機制請搭配後端實作。</p>
 
     <!-- ========== Login View ========== -->
     <div id="login-view">
@@ -300,17 +319,32 @@
           </div>
         </div>
 
-        <!-- 圖形鎖 & 資安提示 -->
+        <!-- 圖形文字鎖 & 資安提示 -->
         <div class="card">
           <div class="card-header">
-            <h3>第二道驗證：圖形鎖</h3>
-            <span class="tag">Pattern Lock</span>
+            <h3>第二道驗證：圖形文字鎖</h3>
+            <span class="tag">Captcha</span>
           </div>
-          <p class="tiny">請依順序點擊 3×3 節點，解鎖圖形鎖。（預設樣板，實務請改為後端驗證）</p>
+          <p class="tiny">
+            依畫面中的圖形文字輸入（數字、英文，大小寫皆可），通過後才允許登入。
+          </p>
 
-          <div class="pattern-lock" id="pattern-lock"></div>
-          <div class="tiny">目前輸入序列：<span id="pattern-display">（尚未輸入）</span></div>
-          <div class="status" id="pattern-status"></div>
+          <div class="captcha-box">
+            <div class="captcha-display">
+              <span id="captcha-text">------</span>
+            </div>
+            <div class="captcha-row">
+              <input
+                type="text"
+                id="captcha-input"
+                placeholder="請依上方圖形輸入文字（不分大小寫）"
+                autocomplete="off"
+              />
+              <button id="btn-refresh-captcha" class="secondary">重新產生</button>
+            </div>
+          </div>
+
+          <div class="status" id="captcha-status"></div>
 
           <p class="tiny mt-8">
             帳號登入安全策略（前端示意，實務應由後端強制）：<br/>
@@ -452,14 +486,13 @@
 
     const LOGIN_ACCOUNT = "demo";
     const LOGIN_PASSWORD = "demo1234";
-    const LOGIN_PATTERN = "1-2-3-5-8"; // 預設圖形鎖序列（可自行修改）
 
-    let currentPattern = [];
-    let isPatternVerified = false;
+    let currentCaptcha = "";
 
     const loginStatusEl = document.getElementById("login-status");
-    const patternStatusEl = document.getElementById("pattern-status");
-    const patternDisplayEl = document.getElementById("pattern-display");
+    const captchaStatusEl = document.getElementById("captcha-status");
+    const captchaTextEl = document.getElementById("captcha-text");
+    const captchaInputEl = document.getElementById("captcha-input");
 
     function loadLockState() {
       const raw = localStorage.getItem("hourly_leave_lock_state");
@@ -490,9 +523,9 @@
       loginStatusEl.className = "status " + (type || "");
     }
 
-    function showPatternStatus(msg, type = "") {
-      patternStatusEl.textContent = msg;
-      patternStatusEl.className = "status " + (type || "");
+    function showCaptchaStatus(msg, type = "") {
+      captchaStatusEl.textContent = msg;
+      captchaStatusEl.className = "status " + (type || "");
     }
 
     function formatTime(ts) {
@@ -500,10 +533,35 @@
       return d.toLocaleTimeString("zh-TW", { hour12: false });
     }
 
+    function generateCaptcha(length = 5) {
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+      let result = "";
+      for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      currentCaptcha = result;
+      captchaTextEl.textContent = result;
+      captchaInputEl.value = "";
+      showCaptchaStatus("請依圖形文字輸入，不分大小寫。", "tiny");
+    }
+
+    function validateCaptcha(input) {
+      if (!currentCaptcha) return false;
+      return input.trim().toLowerCase() === currentCaptcha.trim().toLowerCase();
+    }
+
+    // 初始化圖形文字鎖
+    generateCaptcha();
+    document.getElementById("btn-refresh-captcha").addEventListener("click", () => {
+      generateCaptcha();
+      showCaptchaStatus("已重新產生圖形文字鎖。", "warn");
+    });
+
     // 登入流程
     document.getElementById("btn-login").addEventListener("click", () => {
       const account = document.getElementById("login-account").value.trim();
       const password = document.getElementById("login-password").value;
+      const captchaInput = captchaInputEl.value.trim();
 
       const lockState = loadLockState();
       const now = Date.now();
@@ -520,11 +578,19 @@
         return;
       }
 
-      if (!isPatternVerified) {
-        showLoginStatus("請先通過圖形鎖驗證。", "warn");
+      // 先檢查圖形文字鎖
+      if (!captchaInput) {
+        showCaptchaStatus("請先輸入圖形文字鎖。", "warn");
         return;
       }
+      if (!validateCaptcha(captchaInput)) {
+        showCaptchaStatus("圖形文字鎖不正確，已重新產生新組合。", "error");
+        generateCaptcha();
+        return;
+      }
+      showCaptchaStatus("圖形文字鎖驗證通過。", "ok");
 
+      // 再檢查帳號密碼
       if (account === LOGIN_ACCOUNT && password === LOGIN_PASSWORD) {
         // 登入成功：清空鎖定資訊
         saveLockState({ failCount: 0, tempLockUntil: 0, permanentlyLocked: false });
@@ -546,13 +612,18 @@
 
         saveLockState(lockState);
         showLoginStatus(msg, "error");
+        // 為了防止暴力攻擊，錯誤後也重生一組 captcha
+        generateCaptcha();
       }
     });
 
     document.getElementById("btn-login-clear").addEventListener("click", () => {
       document.getElementById("login-account").value = "";
       document.getElementById("login-password").value = "";
+      captchaInputEl.value = "";
       showLoginStatus("");
+      showCaptchaStatus("");
+      generateCaptcha();
     });
 
     function enterApp(account) {
@@ -560,52 +631,6 @@
       document.getElementById("app-view").style.display = "block";
       document.getElementById("logged-user-label").textContent = "已登入使用者：" + account;
     }
-
-    // 圖形鎖初始化
-    (function initPatternLock() {
-      const container = document.getElementById("pattern-lock");
-      for (let i = 1; i <= 9; i++) {
-        const node = document.createElement("div");
-        node.className = "pattern-node";
-        node.dataset.index = String(i);
-        node.textContent = i;
-        node.addEventListener("click", onPatternNodeClick);
-        container.appendChild(node);
-      }
-    })();
-
-    function onPatternNodeClick(e) {
-      const node = e.currentTarget;
-      const idx = node.dataset.index;
-      if (!idx) return;
-
-      if (!currentPattern.includes(idx)) {
-        currentPattern.push(idx);
-        node.classList.add("active");
-        patternDisplayEl.textContent = currentPattern.join(" - ");
-      }
-
-      // 略示意：最少 4 點後開始判斷
-      if (currentPattern.length >= 4) {
-        const seq = currentPattern.join("-");
-        if (seq === LOGIN_PATTERN) {
-          isPatternVerified = true;
-          showPatternStatus("圖形鎖驗證成功。", "ok");
-        } else {
-          isPatternVerified = false;
-          showPatternStatus("圖形鎖不正確，請重新輸入。", "error");
-        }
-      }
-    }
-
-    // 重設圖形鎖（雙擊容器）
-    document.getElementById("pattern-lock").addEventListener("dblclick", () => {
-      currentPattern = [];
-      isPatternVerified = false;
-      patternDisplayEl.textContent = "（尚未輸入）";
-      showPatternStatus("已清除圖形鎖輸入。", "warn");
-      document.querySelectorAll(".pattern-node").forEach(n => n.classList.remove("active"));
-    });
 
     /************************************************
      * 主程式：時數登記與特休計算
